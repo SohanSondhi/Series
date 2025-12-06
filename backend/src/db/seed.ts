@@ -18,7 +18,7 @@ async function seed() {
 
         // Create test users
         console.log('👥 Creating test users...');
-        
+
         // Main user (use a test phone number - replace with your actual number when testing)
         const [mainUser] = await db.insert(users).values({
             firstName: 'Sabrina',
@@ -96,28 +96,82 @@ async function seed() {
         console.log('💬 Creating messages...');
         const now = new Date();
         const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
         const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const twoMonthsAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
 
-        // Many messages with connection1 (top connection)
+        // Realistic message templates for variety
+        const sohanMessages = [
+            'Hey! How\'s the hackathon going?',
+            'That sounds awesome!',
+            'Yeah totally agree',
+            'Haha that\'s hilarious',
+            'Working on the backend right now',
+            'Did you see that new feature?',
+            'Let\'s sync up later',
+            'Thanks for the help!',
+            'Just pushed the latest changes',
+            'What do you think about this approach?',
+            'That makes sense',
+            'Cool, let me know when you\'re ready',
+            'Same here!',
+            'Just finished that task',
+            'Can you review this?',
+            'Sounds good to me',
+            'Let\'s discuss this tomorrow',
+            'Great work on that!',
+            'I\'ll check it out',
+            'Perfect timing',
+        ];
+
+        const alexMessages = [
+            'Hey Alex!',
+            'How\'s everything going?',
+            'Congrats on the promotion!',
+            'That\'s really impressive',
+            'Would love to hear more about it',
+            'Thanks for sharing',
+            'Let\'s catch up soon',
+            'Hope you\'re doing well',
+        ];
+
+        const mayaMessages = [
+            'Hey Maya!',
+            'How was Tokyo?',
+            'The photos look amazing',
+            'Would love to see the exhibition',
+            'Hope you\'re doing well',
+        ];
+
+        // Many messages with connection1 (Sohan - top connection, most messages)
         const messagesWithConnection1 = [];
-        for (let i = 0; i < 50; i++) {
-            const timestamp = new Date(now.getTime() - Math.random() * 7 * 24 * 60 * 60 * 1000);
+        const sohanMessageCount = 247; // Sohan has the most messages
+        for (let i = 0; i < sohanMessageCount; i++) {
+            // Spread messages over the past 2 weeks, with more recent activity
+            const daysAgo = Math.random() < 0.7 ? Math.random() * 7 : 7 + Math.random() * 7;
+            const hoursAgo = Math.random() * 24;
+            const timestamp = new Date(now.getTime() - (daysAgo * 24 + hoursAgo) * 60 * 60 * 1000);
+            const messageText = sohanMessages[Math.floor(Math.random() * sohanMessages.length)];
             messagesWithConnection1.push({
                 userId: mainUser.id,
-                messageText: `Message ${i + 1} to Sarah`,
+                messageText: messageText,
                 timestamp,
                 messageRecipients: [connection1.number],
             });
         }
         await db.insert(messages).values(messagesWithConnection1);
 
-        // Many messages with connection2 (second top connection)
+        // Many messages with connection2 (Alex - second top connection)
         const messagesWithConnection2 = [];
-        for (let i = 0; i < 35; i++) {
-            const timestamp = new Date(now.getTime() - Math.random() * 7 * 24 * 60 * 60 * 1000);
+        const alexMessageCount = 89; // Less than Sohan
+        for (let i = 0; i < alexMessageCount; i++) {
+            const daysAgo = Math.random() < 0.6 ? Math.random() * 7 : 7 + Math.random() * 7;
+            const hoursAgo = Math.random() * 24;
+            const timestamp = new Date(now.getTime() - (daysAgo * 24 + hoursAgo) * 60 * 60 * 1000);
+            const messageText = alexMessages[Math.floor(Math.random() * alexMessages.length)];
             messagesWithConnection2.push({
                 userId: mainUser.id,
-                messageText: `Message ${i + 1} to Mike`,
+                messageText: messageText,
                 timestamp,
                 messageRecipients: [connection2.number],
             });
@@ -126,11 +180,15 @@ async function seed() {
 
         // Few messages with connection3 (Maya - some recent messages)
         const messagesWithConnection3 = [];
-        for (let i = 0; i < 15; i++) {
-            const timestamp = new Date(now.getTime() - Math.random() * 14 * 24 * 60 * 60 * 1000);
+        const mayaMessageCount = 23; // Much less than Sohan
+        for (let i = 0; i < mayaMessageCount; i++) {
+            const daysAgo = Math.random() * 21; // Spread over 3 weeks
+            const hoursAgo = Math.random() * 24;
+            const timestamp = new Date(now.getTime() - (daysAgo * 24 + hoursAgo) * 60 * 60 * 1000);
+            const messageText = mayaMessages[Math.floor(Math.random() * mayaMessages.length)];
             messagesWithConnection3.push({
                 userId: mainUser.id,
-                messageText: `Message ${i + 1} to Maya`,
+                messageText: messageText,
                 timestamp,
                 messageRecipients: [connection3.number],
             });
@@ -158,7 +216,7 @@ async function seed() {
         // Create wrapped cache data with Twitter recaps
         console.log('📦 Creating wrapped cache data...');
 
-        const createWrappedCacheData = (user: any, weeklyRecap: string) => ({
+        const createWrappedCacheData = (user: any, weeklyRecap: string, messageCount: number) => ({
             user: {
                 id: user.id,
                 firstName: user.firstName,
@@ -166,11 +224,11 @@ async function seed() {
                 phoneNumber: user.number,
             },
             statistics: {
-                totalMessages: 100,
-                messagesSent: 60,
-                messagesReceived: 40,
-                connectionCount: 10,
-                averageMessageLength: 45,
+                totalMessages: messageCount * 2, // Rough estimate: sent + received
+                messagesSent: Math.floor(messageCount * 1.2), // Slightly more sent
+                messagesReceived: Math.floor(messageCount * 0.8), // Slightly fewer received
+                connectionCount: 4,
+                averageMessageLength: Math.floor(35 + Math.random() * 20), // Random between 35-55
             },
             twitterWrapped: {
                 user: {
@@ -187,22 +245,22 @@ async function seed() {
         await db.insert(wrappedCache).values([
             {
                 userId: connection1.id,
-                data: createWrappedCacheData(connection1, connection1.weeklyRecap!),
+                data: createWrappedCacheData(connection1, connection1.weeklyRecap!, sohanMessageCount),
                 lastUpdated: now,
             },
             {
                 userId: connection2.id,
-                data: createWrappedCacheData(connection2, connection2.weeklyRecap!),
+                data: createWrappedCacheData(connection2, connection2.weeklyRecap!, alexMessageCount),
                 lastUpdated: now,
             },
             {
                 userId: connection3.id,
-                data: createWrappedCacheData(connection3, connection3.weeklyRecap!),
+                data: createWrappedCacheData(connection3, connection3.weeklyRecap!, mayaMessageCount),
                 lastUpdated: now,
             },
             {
                 userId: connection4.id,
-                data: createWrappedCacheData(connection4, connection4.weeklyRecap!),
+                data: createWrappedCacheData(connection4, connection4.weeklyRecap!, 2),
                 lastUpdated: now,
             },
         ]);
@@ -212,10 +270,10 @@ async function seed() {
         console.log('\n🎉 Database seeded successfully!');
         console.log('\n📋 Summary:');
         console.log(`   Main user phone: ${mainUser.number}`);
-        console.log(`   Connection 1 (Sarah - top): ${connection1.number}`);
-        console.log(`   Connection 2 (Alex - top): ${connection2.number}`);
-        console.log(`   Connection 3 (Maya - old): ${connection3.number}`);
-        console.log(`   Connection 4 (Ace): ${connection4.number}`);
+        console.log(`   Connection 1 (Sohan - top): ${connection1.number} - ${sohanMessageCount} messages`);
+        console.log(`   Connection 2 (Alex - second): ${connection2.number} - ${alexMessageCount} messages`);
+        console.log(`   Connection 3 (Maya - occasional): ${connection3.number} - ${mayaMessageCount} messages`);
+        console.log(`   Connection 4 (Ace - old): ${connection4.number} - 2 messages`);
         console.log('\n💡 To test, send a message with "wrapped" or "summary" from the main user phone number.');
 
     } catch (error) {

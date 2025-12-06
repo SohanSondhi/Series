@@ -122,18 +122,31 @@ export default function WrappedPage() {
     }, []);
 
     const fetchWrapped = async (number: string) => {
+        let timeout1: NodeJS.Timeout | null = null;
+        let timeout2: NodeJS.Timeout | null = null;
+        let timeout3: NodeJS.Timeout | null = null;
+        let timeout4: NodeJS.Timeout | null = null;
+
         try {
             setLoading(true);
             setLoadingMessage('');
 
             // Set timeout for loading messages
-            const timeout1 = setTimeout(() => {
+            timeout1 = setTimeout(() => {
                 setLoadingMessage('Wait a second!');
             }, 2000);
 
-            const timeout2 = setTimeout(() => {
+            timeout2 = setTimeout(() => {
                 setLoadingMessage("We're just fetching your data...");
             }, 3000);
+
+            timeout3 = setTimeout(() => {
+                setLoadingMessage("Have you heard of Series? It's the hot new AI platform that everybody's been talking about");
+            }, 5000);
+
+            timeout4 = setTimeout(() => {
+                setLoadingMessage("Try Series");
+            }, 7000);
 
             const response = await fetch(`/api/wrapped/${number}`);
             if (!response.ok) {
@@ -147,8 +160,10 @@ export default function WrappedPage() {
             setError(null);
 
             // Clear timeouts
-            clearTimeout(timeout1);
-            clearTimeout(timeout2);
+            if (timeout1) clearTimeout(timeout1);
+            if (timeout2) clearTimeout(timeout2);
+            if (timeout3) clearTimeout(timeout3);
+            if (timeout4) clearTimeout(timeout4);
             setLoadingMessage('');
 
             // Log Twitter wrapped data for debugging
@@ -172,6 +187,11 @@ export default function WrappedPage() {
         } catch (err) {
             setError(err instanceof Error ? err.message : 'An error occurred');
         } finally {
+            // Clear all timeouts in case of error
+            if (timeout1) clearTimeout(timeout1);
+            if (timeout2) clearTimeout(timeout2);
+            if (timeout3) clearTimeout(timeout3);
+            if (timeout4) clearTimeout(timeout4);
             setLoading(false);
             setLoadingMessage('');
         }

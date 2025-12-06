@@ -1,5 +1,7 @@
 # Series Hax Project
 
+[Demo Video](demo.MOV)
+
 ## Tech Stack
 
 - **Frontend**: React 18 + TypeScript + Vite
