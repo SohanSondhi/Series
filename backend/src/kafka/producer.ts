@@ -259,7 +259,7 @@ export async function sendSeriesAPIMessage(
  * @param recipientPhones - Array of recipient phone numbers (E.164 format) or single phone number string
  * @param text - Message text content
  * @param fromPhone - Optional sender phone number (defaults to SENDER_NUMBER)
- * @param displayName - Optional display name for group chats
+ * @param displayName - Optional display name for group chats (forces new chat creation)
  * @returns Object with results from both API calls
  */
 export async function sendMessage(
@@ -288,13 +288,17 @@ export async function sendMessage(
         errors: [] as string[],
     };
 
-    // Try to find existing chat first
+    // Try to find existing chat first (but not if we're creating a group chat with displayName)
     let chatId: number | null = null;
-    try {
-        chatId = await findChatByPhoneNumbers([senderPhone, ...normalizedRecipients]);
-        results.chatId = chatId;
-    } catch (error) {
-        console.warn('⚠️ Error finding chat, will create new one:', error);
+    if (!displayName) {
+        try {
+            chatId = await findChatByPhoneNumbers([senderPhone, ...normalizedRecipients]);
+            results.chatId = chatId;
+        } catch (error) {
+            console.warn('⚠️ Error finding chat, will create new one:', error);
+        }
+    } else {
+        console.log(`📝 Creating new group chat with displayName: ${displayName}`);
     }
 
     // Send via Series API (actually sends the message)
