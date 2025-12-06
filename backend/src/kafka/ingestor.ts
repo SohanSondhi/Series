@@ -4,6 +4,7 @@ import { parseTimestamp } from './utils.js';
 import { upsertUser, insertMessage, updateConnection } from './db-helpers.js';
 import { KafkaEvent, MessageReceivedData } from './kafkaTypes.js';
 import { determineIfSummaryRelated, sendSummaryTextMessage } from './sendSummary.js';
+import { handleGroupChatRequest } from './createGc.js';
 
 dotenv.config();
 
@@ -107,12 +108,19 @@ async function processMessageReceived(event: KafkaEvent): Promise<void> {
     }
 
     try {
-        // Check if the message is related to "wrapped"
-        const isSummaryRelated = await determineIfSummaryRelated(event);
+        // First, check if this is a group chat request (user responding to wrapped GC prompt)
+        const wasGcRequest = await handleGroupChatRequest(event);
+        if (wasGcRequest) {
+            console.log(`✅ Handled as group chat request`);
+            // Don't return early - still process message for DB storage below
+        } else {
+            // Check if the message is related to "wrapped"
+            const isSummaryRelated = await determineIfSummaryRelated(event);
 
-        if (isSummaryRelated) {
-            // Send the summary message
-            await sendSummaryTextMessage(event);
+            if (isSummaryRelated) {
+                // Send the summary message
+                await sendSummaryTextMessage(event);
+            }
         }
     } catch (error) {
         console.error('Error processing message:', error);

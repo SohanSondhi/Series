@@ -21,9 +21,9 @@ async function seed() {
         
         // Main user (use a test phone number - replace with your actual number when testing)
         const [mainUser] = await db.insert(users).values({
-            firstName: 'Sohan',
-            lastName: 'Sondhi',
-            number: '+19082008172', // Replace with your actual phone number for testing
+            firstName: 'Sabrina',
+            lastName: 'Do',
+            number: '+17146549691', // Replace with your actual phone number for testing
             age: 25,
             location: 'New York, NY',
             bio: 'Building cool stuff and connecting with people!',
@@ -32,13 +32,13 @@ async function seed() {
 
         // Connection 1 - Top connection (lots of messages)
         const [connection1] = await db.insert(users).values({
-            firstName: 'Sarah',
-            lastName: 'Chen',
-            number: '+1111111111',
-            age: 26,
+            firstName: 'Sohan',
+            lastName: 'Sondhi',
+            number: '+19082008172',
+            age: 20,
             location: 'San Francisco, CA',
             bio: 'Tech enthusiast and startup founder.',
-            weeklyRecap: 'Launching a new AI startup this week focused on personalized learning.',
+            weeklyRecap: 'Participating in Series hackathon.',
         }).returning();
 
         // Connection 2 - Second top connection

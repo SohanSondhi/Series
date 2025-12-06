@@ -6,9 +6,12 @@ import { eq, desc, sql, and } from 'drizzle-orm';
 import { generateWeeklyRecap } from '../services/llm.js';
 import { generateTwitterWrapped } from '../routes/wrapped.js';
 import { extractUsername } from '../routes/twitter.js';
+import { storeWrappedConnections, WrappedConnection } from './createGc.js';
 
 interface ConnectionSummary {
     name: string;
+    firstName: string;
+    phoneNumber: string;
     summary: string;
     isOldConnection: boolean;
 }
@@ -165,6 +168,8 @@ export async function getConnectionSummaries(userPhone: string): Promise<Connect
 
             summaries.push({
                 name,
+                firstName: conn.connectedUser.firstName,
+                phoneNumber: conn.connectedUser.number,
                 summary: shortSummary,
                 isOldConnection,
             });
@@ -288,6 +293,21 @@ export async function sendSummaryTextMessage(event: KafkaEvent): Promise<void> {
     const message = formatConnectionsSummary(connectionSummaries, wrappedUrl);
 
     await sendMessage([data.from_phone], message);
+
+    // Store connections for potential group chat creation
+    if (connectionSummaries.length > 0) {
+        const wrappedConnections: WrappedConnection[] = connectionSummaries.map(summary => ({
+            firstName: summary.firstName,
+            fullName: summary.name,
+            phoneNumber: summary.phoneNumber,
+        }));
+        storeWrappedConnections(data.from_phone, wrappedConnections);
+
+        // Send follow-up message prompting for group chat
+        const firstTwoNames = connectionSummaries.slice(0, 2).map(s => s.firstName);
+        const gcPrompt = `Want to reconnect? Reply with names to start a group chat (e.g., '${firstTwoNames.join(', ')}')`;
+        await sendMessage([data.from_phone], gcPrompt);
+    }
 }
 
 /**
