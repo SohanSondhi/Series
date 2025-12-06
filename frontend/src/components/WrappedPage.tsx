@@ -36,6 +36,7 @@ interface WrappedData {
         topContacts: Array<{
             phoneNumber: string;
             messageCount: number;
+            name: string | null;
         }>;
         messagesByDayOfWeek: Array<{
             day: string;
@@ -214,6 +215,7 @@ export default function WrappedPage() {
                         dateRange: statistics.dateRange,
                         mostActiveDay: statistics.mostActiveDay,
                     }}
+                    breakdown={wrappedData.breakdown}
                 />
             </div>
         </div>

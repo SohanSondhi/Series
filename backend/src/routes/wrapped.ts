@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db/index.js';
-import { users, messages, connections, messageCounterparties } from '../db/schema.js';
+import { users, messages, connections } from '../db/schema.js';
 import { eq, and, count, sql, desc } from 'drizzle-orm';
 import { aggregateTweetContent, generateWeeklyRecap } from '../services/llm.js';
 import { extractUsername, fetchTwitterUser, fetchRecentTweets, TwitterTweet } from './twitter.js';
@@ -112,47 +112,102 @@ router.get('/:phoneNumber', async (req, res) => {
             return res.status(400).json({ error: 'Phone number is required' });
         }
 
-        // Normalize phone number (remove non-digits)
-        const normalizedPhone = phoneNumber.replace(/\D/g, '');
-
         // Find user by phone number
         const [user] = await db
             .select()
             .from(users)
-            .where(eq(users.number, normalizedPhone))
+            .where(eq(users.number, phoneNumber))
             .limit(1);
 
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        // Get message statistics
-        const messageStats = await db
+        // Get total message count (messages where user is the sender)
+        const messageCount = await db
+            .select({ count: count() })
+            .from(messages)
+            .where(eq(messages.userId, user.id));
+
+        const totalMessages = messageCount[0]?.count || 0;
+        const messagesSent = totalMessages;
+
+        // Get messages received (messages where user's phone number appears in messageRecipients array)
+        const messagesReceivedCount = await db
+            .select({ count: count() })
+            .from(messages)
+            .where(sql`${sql.raw(`'${user.number.replace(/'/g, "''")}'`)} = ANY(${messages.messageRecipients})`);
+
+        const messagesReceived = Number(messagesReceivedCount[0]?.count || 0);
+
+        // Get top contacts by counting occurrences in messageRecipients arrays
+        // We need to unnest the arrays and count
+        const allUserMessages = await db
             .select({
-                direction: messages.direction,
-                count: count(),
+                messageRecipients: messages.messageRecipients,
             })
             .from(messages)
-            .where(eq(messages.userId, user.id))
-            .groupBy(messages.direction);
+            .where(eq(messages.userId, user.id));
 
-        // Calculate totals
-        const messagesSent = messageStats.find(s => s.direction === 'outbound')?.count || 0;
-        const messagesReceived = messageStats.find(s => s.direction === 'inbound')?.count || 0;
-        const totalMessages = messagesSent + messagesReceived;
+        // Count occurrences of each phone number across all messageRecipients arrays
+        const contactCounts = new Map<string, number>();
+        allUserMessages.forEach(msg => {
+            if (msg.messageRecipients) {
+                msg.messageRecipients.forEach(phone => {
+                    contactCounts.set(phone, (contactCounts.get(phone) || 0) + 1);
+                });
+            }
+        });
 
-        // Get top contacts from message_counterparties table (supports multiple counterparties)
-        const topContacts = await db
-            .select({
-                counterpartyPhone: messageCounterparties.counterpartyPhone,
-                messageCount: count(),
+        // Convert to array and sort by count
+        const topContactsRaw = Array.from(contactCounts.entries())
+            .map(([phone, count]) => ({ counterpartyPhone: phone, messageCount: count }))
+            .sort((a, b) => b.messageCount - a.messageCount)
+            .slice(0, 10);
+
+        // Get admin number from environment
+        const adminNumber = process.env.SENDER_NUMBER || null;
+
+        // Fetch user info for each top contact to get names
+        const topContacts = await Promise.all(
+            topContactsRaw.map(async (contact) => {
+                // Check if this is the admin number
+                if (adminNumber && contact.counterpartyPhone === adminNumber) {
+                    return {
+                        phoneNumber: contact.counterpartyPhone,
+                        messageCount: contact.messageCount,
+                        name: 'Your AI Friend Laura',
+                    };
+                }
+
+                // Try to find user by phone number
+                const [contactUser] = await db
+                    .select({
+                        firstName: users.firstName,
+                        lastName: users.lastName,
+                    })
+                    .from(users)
+                    .where(eq(users.number, contact.counterpartyPhone))
+                    .limit(1);
+
+                // If user found and has a name (not "Unknown User"), use it
+                if (contactUser &&
+                    !(contactUser.firstName === 'Unknown' && contactUser.lastName === 'User')) {
+                    return {
+                        phoneNumber: contact.counterpartyPhone,
+                        messageCount: contact.messageCount,
+                        name: `${contactUser.firstName} ${contactUser.lastName}`,
+                    };
+                }
+
+                // Otherwise, return without name (frontend will show phone number)
+                return {
+                    phoneNumber: contact.counterpartyPhone,
+                    messageCount: contact.messageCount,
+                    name: null,
+                };
             })
-            .from(messageCounterparties)
-            .innerJoin(messages, eq(messageCounterparties.messageId, messages.id))
-            .where(eq(messages.userId, user.id))
-            .groupBy(messageCounterparties.counterpartyPhone)
-            .orderBy(desc(count()))
-            .limit(10);
+        );
 
         // Get messages by day of week
         const messagesByDay = await db
@@ -286,8 +341,9 @@ router.get('/:phoneNumber', async (req, res) => {
             },
             breakdown: {
                 topContacts: topContacts.map(contact => ({
-                    phoneNumber: contact.counterpartyPhone,
+                    phoneNumber: contact.phoneNumber,
                     messageCount: contact.messageCount,
+                    name: contact.name || null,
                 })),
                 messagesByDayOfWeek: messagesByDay.map(day => ({
                     day: dayNames[Number(day.dayOfWeek)],

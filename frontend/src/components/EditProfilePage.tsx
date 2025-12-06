@@ -205,6 +205,26 @@ export default function EditProfilePage() {
         e.preventDefault();
         if (!phoneNumber) return;
 
+        // Validate required fields
+        const trimmedFirstName = formData.first_name.trim();
+        const trimmedLastName = formData.last_name.trim();
+        const trimmedLinkedIn = formData.linkedin.trim();
+
+        if (!trimmedFirstName) {
+            setError('First name is required');
+            return;
+        }
+
+        if (!trimmedLastName) {
+            setError('Last name is required');
+            return;
+        }
+
+        if (!trimmedLinkedIn) {
+            setError('LinkedIn URL is required');
+            return;
+        }
+
         // Validate all URLs before submitting
         const linkedinError = validateUrl(formData.linkedin, 'linkedin');
         const instagramError = formData.instagram ? validateUrl(formData.instagram, 'instagram') : '';
@@ -219,6 +239,9 @@ export default function EditProfilePage() {
         if (linkedinError || instagramError || twitterError) {
             return; // Don't submit if there are validation errors
         }
+
+        // Clear any previous errors
+        setError(null);
 
         try {
             const response = await fetch(`/api/profile/${phoneNumber}`, {
@@ -328,7 +351,7 @@ export default function EditProfilePage() {
 
                 <form className="edit-profile__form" onSubmit={handleSubmit}>
                     <div className="edit-profile__field">
-                        <label>NAME</label>
+                        <label>NAME <span className="edit-profile__required">(Required)</span></label>
                         <div className="edit-profile__input-wrapper">
                             <input
                                 type="text"
@@ -340,12 +363,20 @@ export default function EditProfilePage() {
                                         first_name: names[0] || '',
                                         last_name: names.slice(1).join(' ') || '',
                                     }));
+                                    // Clear error when user starts typing
+                                    if (error && (error.includes('First name') || error.includes('Last name'))) {
+                                        setError(null);
+                                    }
                                 }}
                                 placeholder="Full Name"
-                                className="edit-profile__input"
+                                className={`edit-profile__input ${(!formData.first_name.trim() || !formData.last_name.trim()) && error ? 'edit-profile__input--error' : ''}`}
+                                required
                             />
                             <span className="edit-profile__info-icon">ⓘ</span>
                         </div>
+                        {error && (error.includes('First name') || error.includes('Last name')) && (
+                            <span className="edit-profile__error-message">{error}</span>
+                        )}
                     </div>
 
                     <div className="edit-profile__field">
@@ -405,9 +436,16 @@ export default function EditProfilePage() {
                                         type="url"
                                         name="linkedin"
                                         value={formData.linkedin}
-                                        onChange={handleChange}
+                                        onChange={(e) => {
+                                            handleChange(e);
+                                            // Clear error when user starts typing
+                                            if (error && error.includes('LinkedIn')) {
+                                                setError(null);
+                                            }
+                                        }}
                                         placeholder="LinkedIn URL"
-                                        className={`edit-profile__input ${urlErrors.linkedin ? 'edit-profile__input--error' : ''}`}
+                                        className={`edit-profile__input ${(urlErrors.linkedin || (error && error.includes('LinkedIn'))) ? 'edit-profile__input--error' : ''}`}
+                                        required
                                     />
                                     {formData.linkedin && !urlErrors.linkedin && (
                                         <span className="edit-profile__check-icon">✓</span>
@@ -415,6 +453,9 @@ export default function EditProfilePage() {
                                 </div>
                                 {urlErrors.linkedin && (
                                     <span className="edit-profile__error-message">{urlErrors.linkedin}</span>
+                                )}
+                                {error && error.includes('LinkedIn') && !urlErrors.linkedin && (
+                                    <span className="edit-profile__error-message">{error}</span>
                                 )}
                             </div>
 
@@ -455,7 +496,11 @@ export default function EditProfilePage() {
                             <div className="edit-profile__footer-title">Complete your profile</div>
                             <div className="edit-profile__footer-subtitle">{completion}% complete</div>
                         </div>
-                        <button type="submit" className="edit-profile__save-btn">
+                        <button
+                            type="submit"
+                            className="edit-profile__save-btn"
+                            disabled={!formData.first_name.trim() || !formData.last_name.trim() || !formData.linkedin.trim()}
+                        >
                             Save Changes
                         </button>
                     </div>

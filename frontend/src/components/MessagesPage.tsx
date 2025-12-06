@@ -2,6 +2,17 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 
+interface Counterparty {
+    phoneNumber: string;
+    userId: number | null;
+    user: {
+        id: number;
+        firstName: string;
+        lastName: string;
+        number: string;
+    } | null;
+}
+
 interface Message {
     id: number;
     userId: number;
@@ -12,9 +23,9 @@ interface Message {
         number: string;
     } | null;
     messageText: string;
-    direction: 'inbound' | 'outbound';
     timestamp: string;
-    counterpartyPhone: string | null;
+    counterpartyPhones: string[];
+    counterparties: Counterparty[];
     createdAt: string;
 }
 
@@ -39,14 +50,12 @@ export default function MessagesPage() {
         offset: 0,
         hasMore: false,
     });
-    const [filterDirection, setFilterDirection] = useState<'all' | 'inbound' | 'outbound'>('all');
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     useEffect(() => {
-        setPagination(prev => ({ ...prev, offset: 0 }));
         fetchMessages(0);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [filterDirection]);
+    }, []);
 
     useEffect(() => {
         if (pagination.offset > 0) {
@@ -63,10 +72,6 @@ export default function MessagesPage() {
                 limit: pagination.limit.toString(),
                 offset: currentOffset.toString(),
             });
-
-            if (filterDirection !== 'all') {
-                params.append('direction', filterDirection);
-            }
 
             const response = await fetch(`/api/messages?${params.toString()}`);
             if (!response.ok) throw new Error('Failed to fetch messages');
@@ -115,7 +120,7 @@ export default function MessagesPage() {
         return (
             <div className="user-list__error">
                 <p>Error: {error}</p>
-                <button onClick={() => fetchMessages()  }>Retry</button>
+                <button onClick={() => fetchMessages()}>Retry</button>
             </div>
         );
     }
@@ -142,61 +147,13 @@ export default function MessagesPage() {
                         >
                             ← Back to Users
                         </button>
-                        <div style={{ marginLeft: '1rem', display: 'flex', gap: '0.5rem' }}>
-                            <button
-                                onClick={() => {
-                                    setFilterDirection('all');
-                                }}
-                                style={{
-                                    padding: '0.5rem 1rem',
-                                    backgroundColor: filterDirection === 'all' ? '#007bff' : '#6c757d',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer',
-                                }}
-                            >
-                                All
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setFilterDirection('inbound');
-                                }}
-                                style={{
-                                    padding: '0.5rem 1rem',
-                                    backgroundColor: filterDirection === 'inbound' ? '#28a745' : '#6c757d',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer',
-                                }}
-                            >
-                                Inbound
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setFilterDirection('outbound');
-                                }}
-                                style={{
-                                    padding: '0.5rem 1rem',
-                                    backgroundColor: filterDirection === 'outbound' ? '#ffc107' : '#6c757d',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer',
-                                }}
-                            >
-                                Outbound
-                            </button>
-                        </div>
                     </div>
                 </div>
 
                 <div style={{ padding: '1rem', backgroundColor: '#f8f9fa', marginBottom: '1rem', borderRadius: '8px' }}>
                     <p style={{ margin: 0, fontSize: '0.9rem', color: '#666' }}>
                         Total Messages: <strong>{pagination.total}</strong> |
-                        Showing: <strong>{messages.length}</strong> |
-                        Direction: <strong>{filterDirection === 'all' ? 'All' : filterDirection}</strong>
+                        Showing: <strong>{messages.length}</strong>
                     </p>
                 </div>
 
@@ -217,37 +174,41 @@ export default function MessagesPage() {
                                     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
                                 }}
                             >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.5rem' }}>
-                                    <div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                                            <span
-                                                style={{
-                                                    padding: '0.25rem 0.5rem',
-                                                    borderRadius: '4px',
-                                                    fontSize: '0.75rem',
-                                                    fontWeight: 'bold',
-                                                    backgroundColor: message.direction === 'outbound' ? '#ffc107' : '#28a745',
-                                                    color: 'white',
-                                                }}
-                                            >
-                                                {message.direction.toUpperCase()}
-                                            </span>
-                                            {message.user && (
-                                                <span style={{ fontWeight: 'bold' }}>
-                                                    {message.user.firstName} {message.user.lastName}
-                                                </span>
-                                            )}
-                                            <span style={{ color: '#666', fontSize: '0.9rem' }}>
-                                                ({formatPhoneNumber(message.user?.number || null)})
-                                            </span>
-                                        </div>
-                                        {message.counterpartyPhone && (
-                                            <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.25rem' }}>
-                                                To/From: {formatPhoneNumber(message.counterpartyPhone)}
-                                            </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                        <span style={{ color: '#666', fontSize: '0.9rem', fontWeight: '500' }}>From:</span>
+                                        <span style={{ fontWeight: '600', color: '#333' }}>
+                                            {message.user
+                                                ? `${message.user.firstName} ${message.user.lastName}`.trim() || 'Unknown User'
+                                                : 'Unknown User'}
+                                        </span>
+                                        <span style={{ color: '#999', fontSize: '0.85rem' }}>
+                                            ({formatPhoneNumber(message.user?.number || null)})
+                                        </span>
+
+                                        {message.counterparties && message.counterparties.length > 0 && (
+                                            <>
+                                                <span style={{ color: '#ccc', margin: '0 0.25rem' }}>•</span>
+                                                <span style={{ color: '#666', fontSize: '0.9rem', fontWeight: '500' }}>To:</span>
+                                                {message.counterparties.map((cp, idx) => (
+                                                    <span key={cp.phoneNumber} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                                                        <span style={{ fontWeight: '600', color: '#333' }}>
+                                                            {cp.user
+                                                                ? `${cp.user.firstName} ${cp.user.lastName}`.trim() || formatPhoneNumber(cp.phoneNumber)
+                                                                : formatPhoneNumber(cp.phoneNumber)}
+                                                        </span>
+                                                        <span style={{ color: '#999', fontSize: '0.85rem' }}>
+                                                            ({formatPhoneNumber(cp.phoneNumber)})
+                                                        </span>
+                                                        {idx < message.counterparties.length - 1 && (
+                                                            <span style={{ color: '#ccc', margin: '0 0.5rem' }}>,</span>
+                                                        )}
+                                                    </span>
+                                                ))}
+                                            </>
                                         )}
                                     </div>
-                                    <div style={{ fontSize: '0.85rem', color: '#666', textAlign: 'right' }}>
+                                    <div style={{ fontSize: '0.85rem', color: '#666', whiteSpace: 'nowrap' }}>
                                         {formatTimestamp(message.timestamp)}
                                     </div>
                                 </div>

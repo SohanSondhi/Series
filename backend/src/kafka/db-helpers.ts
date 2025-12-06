@@ -1,8 +1,6 @@
 import { db } from '../db/index.js';
-import { users, messages, connections, messageCounterparties } from '../db/schema.js';
+import { users, messages, connections } from '../db/schema.js';
 import { eq, and } from 'drizzle-orm';
-import { normalizePhoneNumber } from './utils.js';
-
 /**
  * Database helper functions for Kafka message processing
  */
@@ -19,13 +17,11 @@ export async function upsertUser(phoneNumber: string): Promise<number> {
         throw new Error('Phone number is required');
     }
 
-    const normalizedPhone = normalizePhoneNumber(phoneNumber);
-
     // Try to find existing user
     const [existingUser] = await db
         .select()
         .from(users)
-        .where(eq(users.number, normalizedPhone))
+        .where(eq(users.number, phoneNumber))
         .limit(1);
 
     if (existingUser) {
@@ -42,7 +38,7 @@ export async function upsertUser(phoneNumber: string): Promise<number> {
             .values({
                 firstName: 'Unknown',
                 lastName: 'User',
-                number: normalizedPhone,
+                number: phoneNumber,
             })
             .returning();
         return newUser.id;
@@ -54,7 +50,6 @@ export async function upsertUser(phoneNumber: string): Promise<number> {
  * 
  * @param userId - ID of the user who sent/received the message
  * @param messageText - Message text content
- * @param direction - 'inbound' or 'outbound'
  * @param timestamp - Message timestamp
  * @param counterpartyPhones - Array of counterparty phone numbers (for group chats)
  * @param chatId - Optional chat ID from Series API
@@ -63,34 +58,20 @@ export async function upsertUser(phoneNumber: string): Promise<number> {
 export async function insertMessage(
     userId: number,
     messageText: string,
-    direction: 'inbound' | 'outbound',
     timestamp: Date,
     counterpartyPhones: string[],
     chatId?: string | null
 ): Promise<number> {
-    // Insert the message
+    // Insert the message with recipients as an array
     const [insertedMessage] = await db.insert(messages).values({
         userId,
         messageText,
-        direction,
         timestamp,
-        counterpartyPhone: counterpartyPhones.length > 0 ? counterpartyPhones[0] : null, // Keep for backward compatibility
         chatId: chatId || null,
+        messageRecipients: counterpartyPhones.length > 0 ? counterpartyPhones : null,
     }).returning({ id: messages.id });
 
-    const messageId = insertedMessage.id;
-
-    // Insert all counterparties into the message_counterparties table
-    if (counterpartyPhones.length > 0) {
-        await db.insert(messageCounterparties).values(
-            counterpartyPhones.map(phone => ({
-                messageId,
-                counterpartyPhone: phone,
-            }))
-        );
-    }
-
-    return messageId;
+    return insertedMessage.id;
 }
 
 /**
@@ -106,11 +87,10 @@ export async function updateConnection(userId: number, counterpartyPhone?: strin
     }
 
     try {
-        const normalizedCounterparty = normalizePhoneNumber(counterpartyPhone);
         const [counterpartyUser] = await db
             .select()
             .from(users)
-            .where(eq(users.number, normalizedCounterparty))
+            .where(eq(users.number, counterpartyPhone))
             .limit(1);
 
         if (!counterpartyUser) {

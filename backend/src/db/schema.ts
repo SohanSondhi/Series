@@ -54,43 +54,22 @@ export const messages = pgTable('messages', {
     id: serial('id').primaryKey(),
     userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
     messageText: text('message_text').notNull(),
-    direction: varchar('direction', { length: 20 }).notNull(), // 'inbound' or 'outbound'
     timestamp: timestamp('timestamp').notNull(),
-    counterpartyPhone: varchar('counterparty_phone', { length: 20 }), // DEPRECATED: Use message_counterparties table instead
     chatId: varchar('chat_id', { length: 50 }), // Chat ID from Series API
+    messageRecipients: text('message_recipients').array(), // Array of recipient phone numbers
     createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => ({
     userIdIdx: index('idx_messages_user_id').on(table.userId),
     timestampIdx: index('idx_messages_timestamp').on(table.timestamp),
-    counterpartyIdx: index('idx_messages_counterparty').on(table.counterpartyPhone),
     chatIdIdx: index('idx_messages_chat_id').on(table.chatId),
 }));
 
-// Message counterparties table for storing multiple counterparties per message (group chats)
-export const messageCounterparties = pgTable('message_counterparties', {
-    id: serial('id').primaryKey(),
-    messageId: integer('message_id').notNull().references(() => messages.id, { onDelete: 'cascade' }),
-    counterpartyPhone: varchar('counterparty_phone', { length: 20 }).notNull(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-}, (table) => ({
-    messageIdIdx: index('idx_message_counterparties_message_id').on(table.messageId),
-    counterpartyIdx: index('idx_message_counterparties_counterparty').on(table.counterpartyPhone),
-    messageCounterpartyIdx: index('idx_message_counterparties_message_counterparty').on(table.messageId, table.counterpartyPhone),
-}));
 
 // Define relations
-export const messagesRelations = relations(messages, ({ one, many }) => ({
+export const messagesRelations = relations(messages, ({ one }) => ({
     user: one(users, {
         fields: [messages.userId],
         references: [users.id],
-    }),
-    counterparties: many(messageCounterparties),
-}));
-
-export const messageCounterpartiesRelations = relations(messageCounterparties, ({ one }) => ({
-    message: one(messages, {
-        fields: [messageCounterparties.messageId],
-        references: [messages.id],
     }),
 }));
 
@@ -100,6 +79,4 @@ export type Connection = typeof connections.$inferSelect;
 export type NewConnection = typeof connections.$inferInsert;
 export type Message = typeof messages.$inferSelect;
 export type NewMessage = typeof messages.$inferInsert;
-export type MessageCounterparty = typeof messageCounterparties.$inferSelect;
-export type NewMessageCounterparty = typeof messageCounterparties.$inferInsert;
 

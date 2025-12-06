@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User } from '../types/user';
 import Sidebar from './Sidebar';
+import { getUserDisplayName } from '../utils/userDisplay';
 
 export default function UserList() {
     const navigate = useNavigate();
@@ -98,13 +99,13 @@ export default function UserList() {
                             >
                                 <div className="user-list__item-avatar">
                                     {user.profile_picture ? (
-                                        <img src={user.profile_picture} alt={`${user.first_name} ${user.last_name}`} />
+                                        <img src={user.profile_picture} alt={getUserDisplayName(user)} />
                                     ) : (
-                                        <span>{`${user.first_name[0]}${user.last_name[0]}`.toUpperCase()}</span>
+                                        <span>🌿</span>
                                     )}
                                 </div>
                                 <div className="user-list__item-info">
-                                    <h3>{`${user.first_name} ${user.last_name}`}</h3>
+                                    <h3>{getUserDisplayName(user)}</h3>
                                     {user.location && <p className="user-list__item-location">{user.location}</p>}
                                 </div>
                                 {hoveredIndex === index && (

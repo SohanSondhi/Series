@@ -3,21 +3,6 @@
  */
 
 /**
- * Normalize phone number to digits only (consistent with database storage)
- * Removes all non-digit characters including + prefix
- * 
- * @param phone - Phone number in any format (E.164, with dashes, etc.)
- * @returns Normalized phone number (digits only)
- * 
- * @example
- * normalizePhoneNumber('+1-234-567-8900') // Returns '12345678900'
- * normalizePhoneNumber('(234) 567-8900')   // Returns '2345678900'
- */
-export function normalizePhoneNumber(phone: string): string {
-    return phone.replace(/\D/g, '');
-}
-
-/**
  * Parse timestamp from various formats
  * Tries to parse from sent_at first, then created_at, then falls back to current time
  * 

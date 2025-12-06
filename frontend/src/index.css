@@ -1432,6 +1432,17 @@ body::before {
   background: #000;
 }
 
+.edit-profile__save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #ccc;
+}
+
+.edit-profile__save-btn:disabled:hover {
+  background: #ccc;
+  transform: none;
+}
+
 .edit-profile__delete-section {
   margin-top: 3rem;
   padding-top: 2rem;
@@ -1854,6 +1865,17 @@ body::before {
   position: relative;
   box-sizing: border-box;
   flex-shrink: 0;
+}
+
+/* Prevent automatic scroll on initial load */
+.wrapped-slides__scroll-container:not(
+    .wrapped-slides__scroll-container--ready
+  ) {
+  scroll-snap-type: none;
+}
+
+.wrapped-slides__scroll-container--ready {
+  scroll-snap-type: y mandatory;
 }
 
 .wrapped-slide {
@@ -2503,6 +2525,110 @@ body::before {
   100% {
     opacity: 1;
     transform: translateX(0) scale(1.3);
+  }
+}
+
+.wrapped-slide--top-contact {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  height: 100%;
+  position: relative;
+  z-index: 2;
+  overflow: hidden;
+}
+
+.wrapped-slide__top-contact-title {
+  font-size: 2rem;
+  font-weight: 600;
+  color: #000000;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(30px);
+  animation: topContactTitleFadeIn 1s ease-out 0.3s forwards;
+  will-change: opacity, transform;
+}
+
+.wrapped-slide__top-contact-phone {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #000000;
+  letter-spacing: 2px;
+  opacity: 0;
+  transform: scale(0.8);
+  animation: topContactPhoneGrow 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.8s
+    forwards;
+  will-change: opacity, transform;
+  padding: 1rem 2rem;
+  background: #fafafa;
+  border-radius: 16px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+}
+
+.wrapped-slide__top-contact-count {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  font-size: 1.75rem;
+  font-weight: 500;
+  color: #000000;
+  opacity: 0;
+  transform: translateY(30px);
+  animation: topContactCountFadeIn 1s ease-out 1.5s forwards;
+  will-change: opacity, transform;
+}
+
+.wrapped-slide__top-contact-count-number {
+  font-size: 4rem;
+  font-weight: 700;
+  color: #000000;
+  line-height: 1;
+  letter-spacing: -2px;
+}
+
+.wrapped-slide__top-contact-count-label {
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: #666666;
+  text-transform: lowercase;
+}
+
+@keyframes topContactTitleFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes topContactPhoneGrow {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes topContactCountFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 

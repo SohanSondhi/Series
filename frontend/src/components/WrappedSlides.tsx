@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AnimatedNumber from './UI/AnimatedNumber';
 import AnimatedText from './UI/AnimatedText';
@@ -15,24 +15,13 @@ function IntroSlide({
     onComplete: () => void;
     scrollContainerRef: React.RefObject<HTMLDivElement>;
 }) {
-    useEffect(() => {
-        if (scrollContainerRef.current) {
-            const timer = setTimeout(() => {
-                const introSlide = scrollContainerRef.current?.children[1] as HTMLElement;
-                if (introSlide) {
-                    introSlide.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-            }, 500);
-            return () => clearTimeout(timer);
-        }
-    }, [scrollContainerRef]);
-
     return (
         <div className="wrapped-slide wrapped-slide--intro">
             <AnimatedText
                 text={content}
                 className="wrapped-slide__title"
                 onComplete={onComplete}
+                scrollContainerRef={scrollContainerRef}
             />
         </div>
     );
@@ -81,7 +70,7 @@ function MostActiveDaySlide({ dayName, messageCount }: { dayName: string; messag
                     </div>
                     {showMessage && (
                         <div className="wrapped-slide__most-active-day-message-text">
-                            you sent
+                            you had a total of
                             <AnimatedNumber
                                 value={messageCount}
                                 duration={1000}
@@ -122,6 +111,22 @@ interface WrappedSlidesProps {
             messageCount: number;
         } | null;
     };
+    breakdown?: {
+        topContacts: Array<{
+            phoneNumber: string;
+            messageCount: number;
+            name: string | null;
+        }>;
+        messagesByDayOfWeek: Array<{
+            day: string;
+            dayNumber: number;
+            count: number;
+        }>;
+        messagesByHour: Array<{
+            hour: number;
+            count: number;
+        }>;
+    };
 }
 
 type Slide =
@@ -129,6 +134,7 @@ type Slide =
     | { type: 'stat'; title: string; value: number; label: string }
     | { type: 'twitter'; content: string | null }
     | { type: 'mostActiveDay'; date: string; messageCount: number }
+    | { type: 'topContact'; phoneNumber: string; messageCount: number; name: string | null }
     | {
         type: 'summary';
         statistics: {
@@ -142,10 +148,96 @@ type Slide =
         }
     };
 
-export default function WrappedSlides({ statistics, twitterRecap, phoneNumber, allStatistics }: WrappedSlidesProps) {
+function TopContactSlide({ phoneNumber, messageCount, name }: { phoneNumber: string; messageCount: number; name: string | null }) {
+    const [isVisible, setIsVisible] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting && !isVisible) {
+                        setIsVisible(true);
+                    }
+                });
+            },
+            { threshold: 0.5 }
+        );
+
+        const currentContainer = containerRef.current;
+        if (currentContainer) {
+            observer.observe(currentContainer);
+        }
+
+        return () => {
+            if (currentContainer) {
+                observer.unobserve(currentContainer);
+            }
+        };
+    }, [isVisible]);
+
+    // Format phone number nicely: (XXX) XXX-XXXX
+    const formatPhoneNumber = (phone: string) => {
+        const cleaned = phone.replace(/\D/g, '');
+        if (cleaned.length === 10) {
+            return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+        }
+        return phone;
+    };
+
+    // Determine display name: use name if available, otherwise format phone number
+    const displayName = name || formatPhoneNumber(phoneNumber);
+
+    return (
+        <div ref={containerRef} className="wrapped-slide wrapped-slide--top-contact">
+            <PulsatingNodes />
+            {isVisible && (
+                <>
+                    <div className="wrapped-slide__top-contact-title">
+                        You messaged this person the most
+                    </div>
+                    <div className="wrapped-slide__top-contact-phone">
+                        {displayName}
+                    </div>
+                    <div className="wrapped-slide__top-contact-count">
+                        <AnimatedNumber
+                            value={messageCount}
+                            duration={1000}
+                            className="wrapped-slide__top-contact-count-number"
+                        />
+                        <span className="wrapped-slide__top-contact-count-label">messages</span>
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}
+
+export default function WrappedSlides({ statistics, twitterRecap, phoneNumber, allStatistics, breakdown }: WrappedSlidesProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
+    const hasScrolledRef = useRef(false); // Track if we've already scrolled from intro
+    const isInitialMountRef = useRef(true); // Track if this is the initial mount
+
+    // Ensure scroll container starts at the top and prevent any initial auto-scroll
+    useEffect(() => {
+        if (scrollContainerRef.current && isInitialMountRef.current) {
+            // Reset scroll to top on initial mount and disable scroll-snap temporarily
+            const container = scrollContainerRef.current;
+            container.scrollTop = 0;
+
+            // Disable scroll-snap initially to prevent automatic scrolling
+            container.classList.remove('wrapped-slides__scroll-container--ready');
+
+            // Re-enable scroll-snap after a short delay to allow initial positioning
+            setTimeout(() => {
+                container.classList.add('wrapped-slides__scroll-container--ready');
+            }, 100);
+
+            isInitialMountRef.current = false;
+        }
+    }, []);
 
 
     const slides: Slide[] = [
@@ -156,7 +248,7 @@ export default function WrappedSlides({ statistics, twitterRecap, phoneNumber, a
         {
             type: 'stat',
             title: 'Got',
-            value: statistics.totalMessages,
+            value: statistics.messagesReceived,
             label: 'messages',
         },
         {
@@ -175,6 +267,13 @@ export default function WrappedSlides({ statistics, twitterRecap, phoneNumber, a
             type: 'mostActiveDay' as const,
             date: allStatistics.mostActiveDay.date,
             messageCount: allStatistics.mostActiveDay.messageCount,
+        }] : []),
+        // Only include top contact slide if data is available
+        ...(breakdown?.topContacts && breakdown.topContacts.length > 0 ? [{
+            type: 'topContact' as const,
+            phoneNumber: breakdown.topContacts[0].phoneNumber,
+            messageCount: breakdown.topContacts[0].messageCount,
+            name: breakdown.topContacts[0].name,
         }] : []),
         {
             type: 'summary',
@@ -199,13 +298,17 @@ export default function WrappedSlides({ statistics, twitterRecap, phoneNumber, a
                         content={slide.content}
                         scrollContainerRef={scrollContainerRef}
                         onComplete={() => {
-                            // Auto-scroll to next slide after 1 second pause
-                            if (scrollContainerRef.current && slideIndex < slides.length - 1) {
-                                const nextSlide = scrollContainerRef.current.children[slideIndex + 1] as HTMLElement;
-                                if (nextSlide) {
-                                    nextSlide.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            // Auto-scroll to next slide after text animation completes (only once)
+                            // Add a small delay to ensure animation is fully complete
+                            setTimeout(() => {
+                                if (!hasScrolledRef.current && scrollContainerRef.current && slideIndex < slides.length - 1) {
+                                    hasScrolledRef.current = true;
+                                    const nextSlide = scrollContainerRef.current.children[slideIndex + 1] as HTMLElement;
+                                    if (nextSlide) {
+                                        nextSlide.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                    }
                                 }
-                            }
+                            }, 100);
                         }}
                     />
                 );
@@ -304,6 +407,11 @@ export default function WrappedSlides({ statistics, twitterRecap, phoneNumber, a
                     <MostActiveDaySlide dayName={dayName} messageCount={slide.messageCount} />
                 );
             }
+
+            case 'topContact':
+                return (
+                    <TopContactSlide phoneNumber={slide.phoneNumber} messageCount={slide.messageCount} name={slide.name} />
+                );
 
             default:
                 return null;

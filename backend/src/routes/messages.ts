@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db/index.js';
-import { messages, users, messageCounterparties } from '../db/schema.js';
+import { messages, users } from '../db/schema.js';
 import { desc, eq, and, count, sql, inArray } from 'drizzle-orm';
 
 const router = Router();
@@ -12,34 +12,28 @@ const router = Router();
  *   - limit: number of messages to return (default: 100)
  *   - offset: offset for pagination (default: 0)
  *   - userId: filter by user ID (optional)
- *   - direction: filter by direction 'inbound' or 'outbound' (optional)
  */
 router.get('/', async (req, res) => {
     try {
         const limit = parseInt(req.query.limit as string) || 100;
         const offset = parseInt(req.query.offset as string) || 0;
         const userId = req.query.userId ? parseInt(req.query.userId as string) : null;
-        const direction = req.query.direction as string | null;
 
         // Build where conditions
         const conditions = [];
         if (userId) {
             conditions.push(eq(messages.userId, userId));
         }
-        if (direction && (direction === 'inbound' || direction === 'outbound')) {
-            conditions.push(eq(messages.direction, direction));
-        }
         const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-        // Get messages with user info
+        // Get messages with user info and recipients array
         const query = db
             .select({
                 id: messages.id,
                 userId: messages.userId,
                 messageText: messages.messageText,
-                direction: messages.direction,
                 timestamp: messages.timestamp,
-                counterpartyPhone: messages.counterpartyPhone,
+                messageRecipients: messages.messageRecipients,
                 createdAt: messages.createdAt,
                 // User information
                 userFirstName: users.firstName,
@@ -67,47 +61,70 @@ router.get('/', async (req, res) => {
 
         const totalCount = Number(totalResult[0]?.count || 0);
 
-        // Get all counterparties for the messages
-        const messageIds = allMessages.map(msg => msg.id);
-        const counterpartiesMap = new Map<number, string[]>();
+        // Get user info for all unique recipient phone numbers
+        const allRecipientPhones = new Set<string>();
+        allMessages.forEach(msg => {
+            if (msg.messageRecipients) {
+                msg.messageRecipients.forEach(phone => allRecipientPhones.add(phone));
+            }
+        });
 
-        if (messageIds.length > 0) {
-            const allCounterparties = await db
+        const recipientUsersMap = new Map<string, {
+            id: number;
+            firstName: string;
+            lastName: string;
+            number: string;
+        } | null>();
+
+        if (allRecipientPhones.size > 0) {
+            const recipientPhonesArray = Array.from(allRecipientPhones);
+            // Query users by phone numbers
+            const recipientUsers = await db
                 .select({
-                    messageId: messageCounterparties.messageId,
-                    counterpartyPhone: messageCounterparties.counterpartyPhone,
+                    id: users.id,
+                    firstName: users.firstName,
+                    lastName: users.lastName,
+                    number: users.number,
                 })
-                .from(messageCounterparties)
-                .where(inArray(messageCounterparties.messageId, messageIds));
+                .from(users)
+                .where(inArray(users.number, recipientPhonesArray));
 
-            // Group counterparties by message ID
-            for (const cp of allCounterparties) {
-                if (!counterpartiesMap.has(cp.messageId)) {
-                    counterpartiesMap.set(cp.messageId, []);
-                }
-                counterpartiesMap.get(cp.messageId)!.push(cp.counterpartyPhone);
+            for (const user of recipientUsers) {
+                recipientUsersMap.set(user.number, user);
             }
         }
 
         res.json({
-            messages: allMessages.map(msg => ({
-                id: msg.id,
-                userId: msg.userId,
-                user: msg.userFirstName && msg.userLastName
-                    ? {
-                        id: msg.userId,
-                        firstName: msg.userFirstName,
-                        lastName: msg.userLastName,
-                        number: msg.userNumber,
-                    }
-                    : null,
-                messageText: msg.messageText,
-                direction: msg.direction,
-                timestamp: msg.timestamp,
-                counterpartyPhone: msg.counterpartyPhone, // Keep for backward compatibility
-                counterpartyPhones: counterpartiesMap.get(msg.id) || [], // New: array of all counterparties
-                createdAt: msg.createdAt,
-            })),
+            messages: allMessages.map(msg => {
+                const recipientPhones = msg.messageRecipients || [];
+                const counterparties = recipientPhones.map(phone => {
+                    const user = recipientUsersMap.get(phone);
+                    return {
+                        phoneNumber: phone,
+                        userId: user?.id || null,
+                        user: user || null,
+                    };
+                });
+
+                return {
+                    id: msg.id,
+                    userId: msg.userId,
+                    user: msg.userFirstName && msg.userLastName
+                        ? {
+                            id: msg.userId,
+                            firstName: msg.userFirstName,
+                            lastName: msg.userLastName,
+                            number: msg.userNumber,
+                        }
+                        : null,
+                    messageText: msg.messageText,
+                    timestamp: msg.timestamp,
+                    counterpartyPhone: recipientPhones[0] || null, // First recipient for backward compatibility
+                    counterpartyPhones: recipientPhones, // Array of phone numbers for backward compatibility
+                    counterparties: counterparties, // Full counterparty info with user details
+                    createdAt: msg.createdAt,
+                };
+            }),
             pagination: {
                 total: totalCount,
                 limit,

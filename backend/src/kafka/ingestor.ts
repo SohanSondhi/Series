@@ -1,6 +1,6 @@
 import { Kafka } from 'kafkajs';
 import dotenv from 'dotenv';
-import { normalizePhoneNumber, parseTimestamp } from './utils.js';
+import { parseTimestamp } from './utils.js';
 import { upsertUser, insertMessage, updateConnection } from './db-helpers.js';
 import { KafkaEvent, MessageReceivedData } from './kafkaTypes.js';
 import { determineIfSummaryRelated, sendSummaryTextMessage } from './sendSummary.js';
@@ -54,22 +54,11 @@ async function processMessageReceived(event: KafkaEvent): Promise<void> {
         return;
     }
 
-    // Find the "me" phone number from chat_handles
-    const meHandle = data.chat_handles?.find(h => h.is_me);
-    const myPhone = meHandle ? normalizePhoneNumber(meHandle.identifier) : null;
-
-    // Determine direction: if from_phone matches "me", it's outbound; otherwise inbound
-    const fromPhone = normalizePhoneNumber(data.from_phone);
-    const direction: 'inbound' | 'outbound' = myPhone && fromPhone === myPhone ? 'outbound' : 'inbound';
-
-    // Determine which user this message belongs to
-    // For inbound: the user is the sender (from_phone)
-    // For outbound: the user is "me" (the one sending)
-    const userPhone = direction === 'inbound' ? fromPhone : (myPhone || fromPhone);
+    const userPhone = data.from_phone;
 
     // Find all counterparties (the other participant(s) in the chat)
-    const counterpartyPhonesUnfiltered = data.chat_handles?.map(h => normalizePhoneNumber(h.identifier)) || [];
-    const counterpartyPhones = counterpartyPhonesUnfiltered.filter(phone => phone !== normalizePhoneNumber(data.from_phone));
+    const counterpartyPhonesUnfiltered = data.chat_handles?.map(h => h.identifier) || [];
+    const counterpartyPhones = counterpartyPhonesUnfiltered.filter(phone => phone !== data.from_phone);
 
     // Parse timestamp
     const messageTimestamp = parseTimestamp(data.sent_at, event.created_at);
@@ -81,7 +70,6 @@ async function processMessageReceived(event: KafkaEvent): Promise<void> {
     await insertMessage(
         userId,
         data.text,
-        direction,
         messageTimestamp,
         counterpartyPhones,
         data.chat_id ? String(data.chat_id) : null
@@ -101,7 +89,7 @@ async function processMessageReceived(event: KafkaEvent): Promise<void> {
         }
     }
 
-    console.log(`✅ Processed ${direction} message: user=${userPhone}, counterparties=[${counterpartyPhones.join(', ') || 'N/A'}], text="${data.text.substring(0, 50)}${data.text.length > 50 ? '...' : ''}"`);
+    console.log(`✅ Processed message: from=${data.from_phone}, to=[${counterpartyPhones.join(', ') || 'N/A'}], text="${data.text.substring(0, 50)}${data.text.length > 50 ? '...' : ''}"`);
 }
 
 /**

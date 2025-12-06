@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { User } from '../types/user';
 import TweetsModal from './TweetsModal';
+import { getUserDisplayName } from '../utils/userDisplay';
 
 interface ProfileCardProps {
     user: User;
@@ -8,7 +9,7 @@ interface ProfileCardProps {
 }
 
 export default function ProfileCard({ user, onClose }: ProfileCardProps) {
-    const fullName = `${user.first_name} ${user.last_name}`;
+    const displayName = getUserDisplayName(user);
     const [isTweetsModalOpen, setIsTweetsModalOpen] = useState(false);
     const [isBioSelected, setIsBioSelected] = useState(false);
 
@@ -21,19 +22,19 @@ export default function ProfileCard({ user, onClose }: ProfileCardProps) {
             )}
 
             <div className="profile-card__header">
-                <h2 className="profile-card__name">{fullName}</h2>
+                <h2 className="profile-card__name">{displayName}</h2>
             </div>
 
             <div className="profile-card__picture-container">
                 {user.profile_picture ? (
                     <img
                         src={user.profile_picture}
-                        alt={fullName}
+                        alt={displayName}
                         className="profile-card__picture"
                     />
                 ) : (
                     <div className="profile-card__picture-placeholder">
-                        <span className="profile-card__initials">{fullName}</span>
+                        <span className="profile-card__initials">🌿</span>
                     </div>
                 )}
             </div>
