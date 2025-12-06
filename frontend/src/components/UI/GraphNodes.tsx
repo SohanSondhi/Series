@@ -62,12 +62,12 @@ export default function GraphNodes({ nodeCount = 15, slowMovement = false }: Gra
         const width = container.clientWidth;
         const height = container.clientHeight;
 
-        // Initialize velocities for each node
+        // Initialize velocities for each node - more dramatic movement
         nodes.forEach((node) => {
             if (!velocitiesRef.current.has(node.id)) {
                 velocitiesRef.current.set(node.id, {
-                    vx: (Math.random() - 0.5) * 0.5,
-                    vy: (Math.random() - 0.5) * 0.5,
+                    vx: (Math.random() - 0.5) * 1.5, // Increased from 0.5 to 1.5
+                    vy: (Math.random() - 0.5) * 1.5, // Increased from 0.5 to 1.5
                 });
             }
         });
@@ -77,25 +77,25 @@ export default function GraphNodes({ nodeCount = 15, slowMovement = false }: Gra
                 prevNodes.map((node) => {
                     const vel = velocitiesRef.current.get(node.id) || { vx: 0, vy: 0 };
 
-                    // Add slight random variation
-                    vel.vx += (Math.random() - 0.5) * 0.02;
-                    vel.vy += (Math.random() - 0.5) * 0.02;
+                    // Add more dramatic random variation
+                    vel.vx += (Math.random() - 0.5) * 0.05; // Increased from 0.02
+                    vel.vy += (Math.random() - 0.5) * 0.05; // Increased from 0.02
 
-                    // Damping (slower damping for more dramatic ricochet)
-                    vel.vx *= 0.96;
-                    vel.vy *= 0.96;
+                    // Less damping for more dramatic movement
+                    vel.vx *= 0.98; // Increased from 0.96
+                    vel.vy *= 0.98; // Increased from 0.96
 
                     const newX = node.x + vel.vx;
                     const newY = node.y + vel.vy;
 
-                    // Bounce off walls with more energy
+                    // Bounce off walls with more dramatic energy
                     if (newX < 10 || newX > width - 30) {
-                        vel.vx *= -0.9;
-                        vel.vy *= 0.95; // Slight friction
+                        vel.vx *= -1.1; // Increased bounce from -0.9
+                        vel.vy *= 0.98; // Less friction
                     }
                     if (newY < 10 || newY > height - 30) {
-                        vel.vy *= -0.9;
-                        vel.vx *= 0.95; // Slight friction
+                        vel.vy *= -1.1; // Increased bounce from -0.9
+                        vel.vx *= 0.98; // Less friction
                     }
 
                     // Keep nodes within bounds

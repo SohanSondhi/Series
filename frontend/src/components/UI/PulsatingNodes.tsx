@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 
 export default function PulsatingNodes() {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -29,7 +29,8 @@ export default function PulsatingNodes() {
     }, [isVisible]);
 
     // Generate nodes randomly positioned, avoiding center content area
-    const nodes = Array.from({ length: nodeCount }, (_, i) => {
+    // Use useMemo to preserve node positions across re-renders
+    const nodes = useMemo(() => Array.from({ length: nodeCount }, (_, i) => {
         const rand = Math.random();
         let top: string;
         let left: string;
@@ -61,7 +62,7 @@ export default function PulsatingNodes() {
             left,
             delay: i * 0.3,
         };
-    });
+    }), [nodeCount]);
 
     return (
         <div ref={containerRef} className="pulsating-nodes">

@@ -667,6 +667,99 @@ body::before {
   box-shadow: 0 4px 12px rgba(188, 24, 136, 0.4);
 }
 
+/* Social Network Graph Styles */
+.social-network-graph {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  background: transparent;
+}
+
+.social-network-graph__node {
+  position: absolute;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, filter 0.3s ease;
+  z-index: 10;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), 0 0 20px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  will-change: transform;
+}
+
+.social-network-graph__node:hover {
+  transform: translate(-50%, -50%) scale(1.3);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4), 0 0 30px rgba(0, 0, 0, 0.2);
+  z-index: 20;
+  filter: brightness(1.1);
+  border-color: rgba(255, 255, 255, 1);
+}
+
+.social-network-graph__node--center {
+  width: 70px;
+  height: 70px;
+  border: 3px solid rgba(0, 0, 0, 0.8);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3), 0 0 30px rgba(0, 0, 0, 0.15);
+}
+
+.social-network-graph__node--center:hover {
+  transform: translate(-50%, -50%) scale(1.15);
+}
+
+.social-network-graph__node-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+.social-network-graph__node-placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.social-network-graph__node-initials {
+  color: white;
+  font-weight: 600;
+  font-size: 1.25rem;
+}
+
+.social-network-graph__node-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 8px;
+  padding: 0.5rem 0.75rem;
+  background: #000000;
+  color: white;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 30;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.social-network-graph__node-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: #000000;
+}
+
 /* Profile Page Styles */
 .profile-page {
   max-width: 1400px;
@@ -675,6 +768,27 @@ body::before {
   display: flex;
   align-items: flex-start;
   gap: 2rem;
+}
+
+.profile-page__graph-container {
+  flex: 1;
+  min-width: 400px;
+  max-width: 600px;
+  height: 500px;
+  border-radius: 12px;
+  background: transparent;
+  padding: 1.5rem;
+  border: none;
+  box-shadow: none;
+}
+
+.profile-page__graph-title {
+  font-size: 1rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #000000;
+  margin-bottom: 1rem;
 }
 
 .profile-page__header {
@@ -3245,19 +3359,94 @@ body::before {
   align-items: center;
   justify-content: flex-end;
   padding-right: 1.5rem;
-  width: 0%;
-  opacity: 0;
+  width: var(--start-width, 25%);
+  opacity: 1;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   position: relative;
   overflow: hidden;
-  transition: opacity 0.3s ease;
+  transform-origin: left center;
 }
 
 .wrapped-slide__competition-bar--racing {
   animation: barRace var(--animation-duration, 2s) cubic-bezier(0.4, 0, 0.2, 1)
     forwards;
   animation-delay: var(--animation-delay, 0s);
-  opacity: 1;
+  /* Ensure black background stays during racing, even if winner/tie classes are present */
+  background: linear-gradient(90deg, #000000 0%, #333333 100%) !important;
+}
+
+/* Winner and tie classes only apply color when NOT racing (after animation completes) */
+/* This ensures colors only show when racing class is removed (animation truly complete) */
+.wrapped-slide__competition-bar--winner:not(
+    .wrapped-slide__competition-bar--racing
+  ) {
+  background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%) !important;
+  box-shadow: 0 4px 20px rgba(34, 197, 94, 0.4), 0 0 30px rgba(34, 197, 94, 0.2);
+  /* Preserve final width after animation */
+  width: var(--target-width, 100%) !important;
+}
+
+.wrapped-slide__competition-bar--tie:not(
+    .wrapped-slide__competition-bar--racing
+  ) {
+  background: linear-gradient(90deg, #eab308 0%, #ca8a04 100%) !important;
+  box-shadow: 0 4px 20px rgba(234, 179, 8, 0.4), 0 0 30px rgba(234, 179, 8, 0.2);
+  /* Preserve final width after animation */
+  width: var(--target-width, 100%) !important;
+}
+
+/* Preserve width for all bars after racing completes (when racing class is removed) */
+/* Only apply if target-width is set (meaning animation has run) */
+.wrapped-slide__competition-bar:not(
+    .wrapped-slide__competition-bar--racing
+  )[style*="--target-width"] {
+  width: var(--target-width) !important;
+}
+
+/* During racing, keep black background, then change color after race completes */
+/* Only apply color animations when both racing AND winner/tie classes are present */
+.wrapped-slide__competition-bar--racing.wrapped-slide__competition-bar--winner {
+  animation: barRace var(--animation-duration, 2s) cubic-bezier(0.4, 0, 0.2, 1)
+      forwards,
+    winnerGlow 0.6s ease-in-out forwards;
+  animation-delay: var(--animation-delay, 0s),
+    calc(var(--animation-delay, 0s) + var(--animation-duration, 2s) + 0.3s);
+  /* Ensure black background stays until animation completes */
+  background: linear-gradient(90deg, #000000 0%, #333333 100%) !important;
+}
+
+.wrapped-slide__competition-bar--racing.wrapped-slide__competition-bar--tie {
+  animation: barRace var(--animation-duration, 2s) cubic-bezier(0.4, 0, 0.2, 1)
+      forwards,
+    tieGlow 0.6s ease-in-out forwards;
+  animation-delay: var(--animation-delay, 0s),
+    calc(var(--animation-delay, 0s) + var(--animation-duration, 2s) + 0.3s);
+  /* Ensure black background stays until animation completes */
+  background: linear-gradient(90deg, #000000 0%, #333333 100%) !important;
+}
+
+@keyframes winnerGlow {
+  0% {
+    background: linear-gradient(90deg, #000000 0%, #333333 100%) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+  100% {
+    background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%) !important;
+    box-shadow: 0 4px 20px rgba(34, 197, 94, 0.4),
+      0 0 30px rgba(34, 197, 94, 0.2);
+  }
+}
+
+@keyframes tieGlow {
+  0% {
+    background: linear-gradient(90deg, #000000 0%, #333333 100%) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+  100% {
+    background: linear-gradient(90deg, #eab308 0%, #ca8a04 100%) !important;
+    box-shadow: 0 4px 20px rgba(234, 179, 8, 0.4),
+      0 0 30px rgba(234, 179, 8, 0.2);
+  }
 }
 
 .wrapped-slide__competition-bar::before {
@@ -3284,24 +3473,38 @@ body::before {
 
 @keyframes barRace {
   0% {
-    width: 0%;
-    transform: scaleX(0);
+    width: var(--start-width, 25%);
   }
-  30% {
+  15% {
     /* Fast start - bars race up quickly */
-    width: calc(var(--target-width, 100%) * 0.6);
+    width: calc(
+      var(--start-width, 25%) +
+        (var(--target-width, 100%) - var(--start-width, 25%)) * 0.3
+    );
   }
-  60% {
+  35% {
     /* Mid point - some bars slow down, others keep going */
-    width: calc(var(--target-width, 100%) * 0.85);
+    width: calc(
+      var(--start-width, 25%) +
+        (var(--target-width, 100%) - var(--start-width, 25%)) * 0.55
+    );
   }
-  85% {
+  55% {
+    /* More progress */
+    width: calc(
+      var(--start-width, 25%) +
+        (var(--target-width, 100%) - var(--start-width, 25%)) * 0.75
+    );
+  }
+  75% {
     /* Near the end - winner catches up */
-    width: calc(var(--target-width, 100%) * 0.95);
+    width: calc(
+      var(--start-width, 25%) +
+        (var(--target-width, 100%) - var(--start-width, 25%)) * 0.9
+    );
   }
   100% {
     width: var(--target-width, 100%);
-    transform: scaleX(1);
   }
 }
 
@@ -3321,14 +3524,17 @@ body::before {
   z-index: 1;
   position: relative;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-  opacity: 0;
-  transform: scale(0.8);
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  opacity: 1;
+  transform: scale(1);
+  white-space: nowrap;
 }
 
 .wrapped-slide__competition-bar--racing .wrapped-slide__competition-bar-value {
-  animation: valueAppear 0.5s ease forwards;
-  animation-delay: calc(var(--animation-delay, 0s) + 1.5s);
+  opacity: 0;
+  animation: valueAppear 0.4s ease forwards;
+  animation-delay: calc(
+    var(--animation-delay, 0s) + var(--animation-duration, 2s) - 0.4s
+  );
 }
 
 @keyframes valueAppear {

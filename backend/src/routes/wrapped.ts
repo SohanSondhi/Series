@@ -15,6 +15,18 @@ const HARDCODED_TWITTER_POSTS_FALLBACK = `[Post 1 - Dec 1]: Excited to share som
 [Post 5 - Dec 5]: Grateful for all the support and engagement from this amazing community.`;
 
 const LLM_CONTEXT_TEMPLATE = (firstName: string, lastName: string, username?: string) => {
+    // Don't include name if it's "Unknown User" (handle various formats)
+    const isUnknownUser = (firstName === 'Unknown' && lastName === 'User') ||
+        firstName === 'Unknown User' ||
+        lastName === 'Unknown User' ||
+        (firstName.trim() === '' && lastName.trim() === '');
+
+    if (isUnknownUser) {
+        // Only include username if available, otherwise generic context
+        const userIdentifier = username ? `@${username}` : 'the user';
+        return `This is a weekly recap for ${userIdentifier} based on their Twitter activity.`;
+    }
+
     const userIdentifier = username
         ? `${firstName} ${lastName} (@${username})`
         : `${firstName} ${lastName}`;

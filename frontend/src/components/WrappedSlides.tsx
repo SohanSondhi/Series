@@ -281,35 +281,9 @@ function CompetitionChartSlide({
 }) {
     const [isVisible, setIsVisible] = useState(false);
     const [animationStarted, setAnimationStarted] = useState(false);
+    const [animationCompleted, setAnimationCompleted] = useState(false);
+    const [racingComplete, setRacingComplete] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        const observer = new IntersectionObserver(
-            (entries) => {
-                entries.forEach((entry) => {
-                    if (entry.isIntersecting && !isVisible) {
-                        setIsVisible(true);
-                        // Start animation after a brief delay
-                        setTimeout(() => {
-                            setAnimationStarted(true);
-                        }, 300);
-                    }
-                });
-            },
-            { threshold: 0.5 }
-        );
-
-        const currentContainer = containerRef.current;
-        if (currentContainer) {
-            observer.observe(currentContainer);
-        }
-
-        return () => {
-            if (currentContainer) {
-                observer.unobserve(currentContainer);
-            }
-        };
-    }, [isVisible]);
 
     // Prepare data for comparison - combine user and connections
     const allData = [
@@ -317,12 +291,15 @@ function CompetitionChartSlide({
         ...connections.map(c => ({ name: c.name, value: c.value }))
     ];
 
-    // Sort by value to find the actual winner
-    const sortedData = [...allData].sort((a, b) => b.value - a.value);
-    const winnerIndex = allData.findIndex(d => d.value === sortedData[0].value);
-
     // Find max value for scaling
     const maxValue = Math.max(...allData.map(d => d.value), 1);
+
+    // Check for ties - find all indices with the max value
+    const winnerIndices = allData
+        .map((d, idx) => d.value === maxValue ? idx : -1)
+        .filter(idx => idx !== -1);
+    const isTie = winnerIndices.length > 1;
+    const winnerIndex = winnerIndices[0]; // Use first winner index for animation timing
 
     // Create animation timing for each bar
     // The winner should finish last (slowest), others finish faster
@@ -340,6 +317,52 @@ function CompetitionChartSlide({
         return 2.2 + (index * 0.15);
     };
 
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting && !isVisible) {
+                        setIsVisible(true);
+                        // Start animation after a brief delay
+                        setTimeout(() => {
+                            setAnimationStarted(true);
+                            // Calculate the longest animation duration (winner's duration + delay)
+                            const maxDuration = Math.max(
+                                ...allData.map((_person, idx) => {
+                                    const isWinner = winnerIndices.includes(idx);
+                                    const duration = getAnimationDuration(idx, isWinner);
+                                    const delay = isWinner ? idx * 0.2 : idx * 0.1;
+                                    return duration + delay;
+                                })
+                            );
+                            // Mark racing as complete after the longest animation finishes
+                            setTimeout(() => {
+                                setRacingComplete(true);
+                                // Then mark animation as completed after color change delay
+                                setTimeout(() => {
+                                    setAnimationCompleted(true);
+                                }, 600); // Color change animation duration
+                            }, maxDuration * 1000);
+                        }, 300);
+                    }
+                });
+            },
+            { threshold: 0.5 }
+        );
+
+        const currentContainer = containerRef.current;
+        if (currentContainer) {
+            observer.observe(currentContainer);
+        }
+
+        return () => {
+            if (currentContainer) {
+                observer.unobserve(currentContainer);
+            }
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isVisible]);
+
     return (
         <div ref={containerRef} className="wrapped-slide wrapped-slide--competition">
             <PulsatingNodes />
@@ -350,21 +373,27 @@ function CompetitionChartSlide({
                     <div className="wrapped-slide__competition-chart">
                         {allData.map((person, index) => {
                             const percentage = (person.value / maxValue) * 100;
-                            const isWinner = index === winnerIndex;
+                            const isWinner = winnerIndices.includes(index);
                             const duration = getAnimationDuration(index, isWinner);
                             // Stagger the start slightly for racing effect - winner starts a bit later
                             const delay = isWinner ? index * 0.2 : index * 0.1;
+
+                            // Calculate start width - all bars start at 25% of their target
+                            const startWidth = percentage * 0.25;
 
                             return (
                                 <div key={index} className="wrapped-slide__competition-bar-wrapper">
                                     <div className="wrapped-slide__competition-bar-label">{person.name}</div>
                                     <div className="wrapped-slide__competition-bar-container">
                                         <div
-                                            className={`wrapped-slide__competition-bar ${animationStarted ? 'wrapped-slide__competition-bar--racing' : ''}`}
+                                            className={`wrapped-slide__competition-bar ${animationStarted && !racingComplete ? 'wrapped-slide__competition-bar--racing' : ''} ${animationCompleted && isWinner ? (isTie ? 'wrapped-slide__competition-bar--tie' : 'wrapped-slide__competition-bar--winner') : ''}`}
                                             style={{
                                                 '--target-width': `${percentage}%`,
+                                                '--start-width': `${startWidth}%`,
                                                 '--animation-duration': `${duration}s`,
                                                 '--animation-delay': `${delay}s`,
+                                                // Preserve final width after animation completes
+                                                width: racingComplete ? `${percentage}%` : undefined,
                                             } as React.CSSProperties}
                                         >
                                             <span className="wrapped-slide__competition-bar-value">
@@ -742,38 +771,102 @@ export default function WrappedSlides({ statistics, twitterRecap, phoneNumber, a
 
 function parseTwitterRecap(text: string): JSX.Element[] {
     // Split by paragraphs and process each
-    const paragraphs = text.split('\n').filter(p => p.trim());
+    // Remove bullet point characters (•, -, *, etc.) from the beginning of lines
+    const paragraphs = text.split('\n')
+        .filter(p => p.trim())
+        .map(p => p.trim().replace(/^[•*-]\s*/, '')); // Remove bullet points
 
     return paragraphs.map((paragraph, index) => {
-        // Process bold text (**text** or **text**)
-        const parts: (string | JSX.Element)[] = [];
-        let lastIndex = 0;
-        const boldRegex = /\*\*(.+?)\*\*/g;
-        let match;
+        let keyCounter = 0;
 
-        while ((match = boldRegex.exec(paragraph)) !== null) {
-            // Add text before the bold
-            if (match.index > lastIndex) {
-                parts.push(paragraph.substring(lastIndex, match.index));
+        // Helper function to process markdown in a text segment
+        const processMarkdown = (text: string, keyPrefix: string): (string | JSX.Element)[] => {
+            const result: (string | JSX.Element)[] = [];
+            let lastIndex = 0;
+
+            // Find all markdown matches (bold and italic)
+            type MarkdownMatch = { start: number; end: number; content: string; type: 'bold' | 'italic' };
+            const matches: MarkdownMatch[] = [];
+
+            // Find bold matches (**text**)
+            const boldRegex = /\*\*(.+?)\*\*/g;
+            let boldMatch: RegExpExecArray | null;
+            while ((boldMatch = boldRegex.exec(text)) !== null) {
+                matches.push({
+                    start: boldMatch.index,
+                    end: boldMatch.index + boldMatch[0].length,
+                    content: boldMatch[1],
+                    type: 'bold',
+                });
             }
-            // Add the bold text
-            parts.push(<strong key={`bold-${index}-${match.index}`}>{match[1]}</strong>);
-            lastIndex = match.index + match[0].length;
-        }
 
-        // Add remaining text
-        if (lastIndex < paragraph.length) {
-            parts.push(paragraph.substring(lastIndex));
-        }
+            // Find italic matches (*text*) - but skip if it's part of a bold marker
+            const italicRegex = /\*([^*]+?)\*/g;
+            let italicMatch: RegExpExecArray | null;
+            while ((italicMatch = italicRegex.exec(text)) !== null) {
+                // Check if this is part of a bold marker (would be **)
+                const isPartOfBold = text[italicMatch.index - 1] === '*' ||
+                    text[italicMatch.index + italicMatch[0].length] === '*';
 
-        // If no bold text was found, just return the paragraph as is
-        if (parts.length === 0) {
-            parts.push(paragraph);
-        }
+                if (!isPartOfBold) {
+                    // Check if it overlaps with any bold match
+                    const overlapsBold = matches.some(m =>
+                        m.type === 'bold' &&
+                        italicMatch!.index < m.end &&
+                        italicMatch!.index + italicMatch![0].length > m.start
+                    );
+
+                    if (!overlapsBold) {
+                        matches.push({
+                            start: italicMatch.index,
+                            end: italicMatch.index + italicMatch[0].length,
+                            content: italicMatch[1],
+                            type: 'italic',
+                        });
+                    }
+                }
+            }
+
+            // Sort matches by position
+            matches.sort((a, b) => a.start - b.start);
+
+            // Build result array
+            for (const match of matches) {
+                // Add text before the match
+                if (match.start > lastIndex) {
+                    const beforeText = text.substring(lastIndex, match.start);
+                    if (beforeText) {
+                        result.push(beforeText);
+                    }
+                }
+
+                // Add the formatted text
+                if (match.type === 'bold') {
+                    result.push(<strong key={`${keyPrefix}-bold-${keyCounter++}`}>{match.content}</strong>);
+                } else {
+                    result.push(<em key={`${keyPrefix}-italic-${keyCounter++}`}>{match.content}</em>);
+                }
+
+                lastIndex = match.end;
+            }
+
+            // Add remaining text
+            if (lastIndex < text.length) {
+                const remainingText = text.substring(lastIndex);
+                if (remainingText) {
+                    result.push(remainingText);
+                }
+            }
+
+            return result.length > 0 ? result : [text];
+        };
+
+        // Process the entire paragraph
+        const processedParts = processMarkdown(paragraph, `para-${index}`);
 
         return (
             <p key={index} className="wrapped-slide__paragraph">
-                {parts}
+                {processedParts}
             </p>
         );
     });

@@ -1,15 +1,3 @@
-/**
- * LLM Service for generating content from text
- * Uses Llama (via Ollama) as the default LLM
- */
-
-interface LLMConfig {
-    provider?: 'llama' | 'ollama' | 'openai' | 'anthropic';
-    apiKey?: string;
-    model?: string;
-    baseUrl?: string;
-}
-
 interface GenerateRecapOptions {
     textContent: string;
     context?: string;
@@ -25,7 +13,7 @@ interface GenerateRecapOptions {
 export async function generateWeeklyRecap(options: GenerateRecapOptions): Promise<string> {
     const {
         textContent,
-        context = 'The user is a user on a social media networking platform.',
+        context,
         maxWords = 200,
     } = options;
 
@@ -56,21 +44,6 @@ export async function generateWeeklyRecap(options: GenerateRecapOptions): Promis
         });
     }
 
-    // Support OpenAI as fallback
-    if (llmProvider === 'openai') {
-        const apiKey = process.env.OPENAI_API_KEY || process.env.LLM_API_KEY;
-        if (!apiKey) {
-            throw new Error('OpenAI API key not configured. Please set OPENAI_API_KEY in environment variables.');
-        }
-        return generateRecapWithOpenAI({
-            textContent,
-            context,
-            maxWords,
-            apiKey,
-            model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-        });
-    }
-
     throw new Error(`LLM provider "${llmProvider}" is not yet supported. Please use 'llama' or 'openai'.`);
 }
 
@@ -86,26 +59,36 @@ async function generateRecapWithLlama(options: {
 }): Promise<string> {
     const { textContent, context, maxWords, baseUrl, model } = options;
 
-    const prompt = `You are an AI assistant helping to create engaging weekly recaps for social media users.
+    const prompt = `### Task
+Analyze the user's posts and produce a weekly recap that highlights:
+- Their most important events, thoughts, or updates
+- Key themes or recurring topics
+- Notable insights or moments
 
-Context: ${context}
+### Output Format (strict)
+Provide **exactly three** bullet points.  
+Each bullet point should:
+- Begin with "•"
+- Contain a short, engaging summary
+- Include *italicized* emphasis on one key phrase
+- Be written in a friendly, conversational tone
 
-Task: Analyze the following aggregated text content from a user's social media posts (specifically Twitter/X posts) and create a concise, engaging weekly recap that highlights:
-- The user's most relevant big events or thoughts
-- Key themes or topics they discussed
-- Notable moments or insights
+### Rules
+- Do **not** include any heading or title.
+- Do **not** include an intro or summary sentence before the bullets.
+- Do **not** include any closing or well-wishing statements.
+- Do **not** repeat content.
+- Only use the user’s name if it is provided and is not "Unknown User".
+- You should in no circustances write this in second or first person. Should be in third person.
+- Do not fabricate details not supported by the posts.
+- Keep the entire output under ${maxWords} words.
 
-Requirements:
-- Format the recap nicely with clear sections or bullet points
-- Keep it engaging and personal
-- Maximum ${maxWords} words
-- Focus on the most important and interesting content
-- Write in a friendly, conversational tone
+${context ? `### User Context: ${context}` : ''}
 
-User's aggregated posts content:
+### User’s Aggregated Post Content
 ${textContent}
 
-Please generate the weekly recap now:`;
+Please generate the weekly recap now.`;
 
     try {
         const apiUrl = `${baseUrl}/api/generate`;
@@ -144,85 +127,6 @@ Please generate the weekly recap now:`;
         return recap.trim();
     } catch (error) {
         console.error('Error generating recap with Llama:', error);
-        throw error;
-    }
-}
-
-/**
- * Generate recap using OpenAI GPT
- */
-async function generateRecapWithOpenAI(options: {
-    textContent: string;
-    context: string;
-    maxWords: number;
-    apiKey: string;
-    model: string;
-}): Promise<string> {
-    const { textContent, context, maxWords, apiKey, model } = options;
-
-    const prompt = `You are an AI assistant helping to create engaging weekly recaps for social media users.
-
-Context: ${context}
-
-Task: Analyze the following aggregated text content from a user's social media posts (specifically Twitter/X posts) and create a concise, engaging weekly recap that highlights:
-- The user's most relevant big events or thoughts
-- Key themes or topics they discussed
-- Notable moments or insights
-
-Requirements:
-- Format the recap nicely with clear sections or bullet points
-- Keep it engaging and personal
-- Maximum ${maxWords} words
-- Focus on the most important and interesting content
-- Write in a friendly, conversational tone
-
-User's aggregated posts content:
-${textContent}
-
-Please generate the weekly recap now:`;
-
-    try {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-                model: model,
-                messages: [
-                    {
-                        role: 'system',
-                        content: 'You are a helpful assistant that creates engaging social media recaps.',
-                    },
-                    {
-                        role: 'user',
-                        content: prompt,
-                    },
-                ],
-                temperature: 0.7,
-                max_tokens: Math.ceil(maxWords * 1.5), // Allow some buffer for tokens
-            }),
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(
-                (errorData as any).error?.message ||
-                `OpenAI API error: ${response.status} ${response.statusText}`
-            );
-        }
-
-        const data = await response.json() as { choices: { message: { content: string } }[] };
-        const recap = data.choices?.[0]?.message?.content;
-
-        if (!recap) {
-            throw new Error('No recap generated from OpenAI API');
-        }
-
-        return recap.trim();
-    } catch (error) {
-        console.error('Error generating recap with OpenAI:', error);
         throw error;
     }
 }

@@ -263,7 +263,7 @@ router.get('/user/:username?', async (req, res) => {
 
         // Using search endpoint with "from:username" query and start_time filter
         // This searches for tweets from the user within the specified time period
-        const tweets = await fetchRecentTweets(username, daysBack, 10);
+        const tweets = await fetchRecentTweets(username, daysBack, 1);
         const tweetsData = { data: tweets, meta: { result_count: tweets.length } };
 
         console.log('\n📝 Recent Posts:');

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { User } from '../types/user';
 import ProfileCard from './ProfileCard';
 import Sidebar from './Sidebar';
+import SocialNetworkGraph from './UI/SocialNetworkGraph';
 
 export default function ProfilePage() {
     const { phoneNumber } = useParams<{ phoneNumber: string }>();
@@ -87,6 +88,12 @@ export default function ProfilePage() {
             />
             <div className="profile-page">
                 <ProfileCard user={user} onClose={() => navigate('/')} />
+                {user.connections && user.connections.length > 0 && (
+                    <div className="profile-page__graph-container">
+                        <h3 className="profile-page__graph-title">Connections Network</h3>
+                        <SocialNetworkGraph user={user} connections={user.connections} />
+                    </div>
+                )}
             </div>
         </div>
     );
