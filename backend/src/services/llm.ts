@@ -37,7 +37,6 @@ export async function generateWeeklyRecap(options: GenerateRecapOptions): Promis
     if (llmProvider === 'llama' || llmProvider === 'ollama' || !process.env.LLM_PROVIDER) {
         return generateRecapWithLlama({
             textContent,
-            context: context || '',
             maxWords,
             baseUrl,
             model,
@@ -52,43 +51,29 @@ export async function generateWeeklyRecap(options: GenerateRecapOptions): Promis
  */
 async function generateRecapWithLlama(options: {
     textContent: string;
-    context: string;
     maxWords: number;
     baseUrl: string;
     model: string;
 }): Promise<string> {
-    const { textContent, context, maxWords, baseUrl, model } = options;
+    const { textContent, maxWords, baseUrl, model } = options;
 
     const prompt = `### Task
-Analyze the user's posts and produce a weekly recap that highlights:
-- Their most important events or updates
-- Notable insights or moments
+Analyze the user's recent posts and produce one sentence recap of what they did:
+
 
 ### Output Format (strict)
-Provide **exactly three** bullet points.  
-Each bullet point should:
-- Begin with "•"
-- Contain a short, direct summary
-- Include *italicized* emphasis on one key phrase
-- Be written in a friendly, conversational tone
+- Include *italicized* emphasis on key words
+- Be direct and to the point.
+- Make sure it is one sentence. ~10 words
+- Make it third person, past tense.
 
-### Rules
-- Do **not** include any heading or title.
-- Do **not** include an intro or summary sentence before the bullets.
-- Do **not** include any closing or well-wishing statements.
-- Do **not** repeat content.
-- Only use the user’s name if it is provided and is not "Unknown User".
-- You should in no circustances write this in second or first person. Should be in third person.
-- Do not fabricate details not supported by the posts.
-- Keep the entire output under ${maxWords} words.
-- Avoid using flowery language. Keep it simple and direct.
-
-${context ? `### User Context: ${context}` : ''}
+## Example Output
+Launching a new AI startup this week focused on personalized learning.
 
 ### User’s Aggregated Post Content
 ${textContent}
 
-Please generate the weekly recap now.`;
+Please generate the weekly 1-sentence recap now.`;
 
     try {
         const apiUrl = `${baseUrl}/api/generate`;

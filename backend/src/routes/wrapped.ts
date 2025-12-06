@@ -41,7 +41,7 @@ const CACHE_TTL_MS = 60 * 60 * 1000;
 /**
  * Helper function to generate Twitter wrapped data with fallback handling
  */
-async function generateTwitterWrapped(
+export async function generateTwitterWrapped(
     user: { firstName: string; lastName: string },
     twitterUsername: string
 ) {
@@ -278,21 +278,22 @@ async function calculateWrappedData(user: typeof users.$inferSelect) {
         .orderBy(desc(count()))
         .limit(1);
 
-    let twitterWrapped = null;
-    const twitterUsername = extractUsername(user.twitter);
-    console.log('twitterUsername', twitterUsername);
+    // let twitterWrapped = null;
+    // const twitterUsername = extractUsername(user.twitter);
+    // console.log('twitterUsername', twitterUsername);
 
-    if (twitterUsername) {
-        try {
-            twitterWrapped = await generateTwitterWrapped(
-                { firstName: user.firstName, lastName: user.lastName },
-                twitterUsername
-            );
-        } catch (error) {
-            console.error('❌ Unexpected error in generateTwitterWrapped:', error);
-            twitterWrapped = null;
-        }
-    }
+    // if (twitterUsername) {
+    //     try {
+    //         twitterWrapped = await generateTwitterWrapped(
+    //             { firstName: user.firstName, lastName: user.lastName },
+    //             twitterUsername
+    //         );
+    //     } catch (error) {
+    //         console.error('❌ Unexpected error in generateTwitterWrapped:', error);
+    //         twitterWrapped = null;
+    //     }
+    // }
+    const twitterWrapped = null;
 
     return {
         user: {
@@ -425,6 +426,209 @@ router.get('/:phoneNumber', async (req, res) => {
         console.error('Error fetching wrapped statistics:', error);
         res.status(500).json({
             error: 'Failed to fetch wrapped statistics',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+
+/**
+ * GET /api/wrapped/:phoneNumber/connectionsWrapped
+ * Get wrapped data for connections using getConnectionSummaries logic
+ * Returns top 2 connections and 1 old connection with their full wrapped data
+ */
+router.get('/:phoneNumber/connectionsWrapped', async (req, res) => {
+    try {
+        const { phoneNumber } = req.params;
+
+        if (!phoneNumber) {
+            return res.status(400).json({ error: 'Phone number is required' });
+        }
+
+        // Find user by phone number
+        const [user] = await db
+            .select()
+            .from(users)
+            .where(eq(users.number, phoneNumber))
+            .limit(1);
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Get all connections first
+        const userConnections = await db
+            .select({
+                connectedUser: users,
+                connectionCreatedAt: connections.createdAt,
+            })
+            .from(connections)
+            .innerJoin(users, eq(connections.connectedUserId, users.id))
+            .where(eq(connections.userId, user.id));
+
+        if (userConnections.length === 0) {
+            return res.json({
+                connections: [],
+            });
+        }
+
+        // Get message counts for each connection to find top and old connections
+        // (Similar logic to getConnectionSummaries but without filtering by weeklyRecap)
+        const connectionStats = await Promise.all(
+            userConnections.map(async ({ connectedUser }) => {
+                // Count messages to/from this connection
+                const messageCount = await db
+                    .select({ count: sql<number>`count(*)` })
+                    .from(messages)
+                    .where(
+                        and(
+                            eq(messages.userId, user.id),
+                            sql`${sql.raw(`'${connectedUser.number.replace(/'/g, "''")}'`)} = ANY(${messages.messageRecipients})`
+                        )
+                    );
+
+                // Get most recent message timestamp
+                const lastMessage = await db
+                    .select({ timestamp: messages.timestamp })
+                    .from(messages)
+                    .where(
+                        and(
+                            eq(messages.userId, user.id),
+                            sql`${sql.raw(`'${connectedUser.number.replace(/'/g, "''")}'`)} = ANY(${messages.messageRecipients})`
+                        )
+                    )
+                    .orderBy(desc(messages.timestamp))
+                    .limit(1);
+
+                return {
+                    connectedUser,
+                    messageCount: Number(messageCount[0]?.count || 0),
+                    lastMessageDate: lastMessage[0]?.timestamp || null,
+                };
+            })
+        );
+
+        // Sort by message count (descending) to get top connections
+        const sortedByMessageCount = [...connectionStats].sort(
+            (a, b) => b.messageCount - a.messageCount
+        );
+
+        // Sort by last message date (ascending) to find old connections
+        const sortedByOldest = [...connectionStats].sort((a, b) => {
+            if (!a.lastMessageDate && !b.lastMessageDate) return 0;
+            if (!a.lastMessageDate) return -1;
+            if (!b.lastMessageDate) return 1;
+            return new Date(a.lastMessageDate).getTime() - new Date(b.lastMessageDate).getTime();
+        });
+
+        // Get top 2 connections (most messages) and mark them as not old
+        const topConnections = sortedByMessageCount.slice(0, 2).map(conn => ({
+            ...conn,
+            isOldConnection: false as const,
+        }));
+
+        // Get 1 old connection (hasn't talked to in a while)
+        // Find one that's not already in top connections
+        const topConnectionIds = new Set(topConnections.map(c => c.connectedUser.id));
+        const oldConnection = sortedByOldest.find(c => !topConnectionIds.has(c.connectedUser.id));
+
+        // Map old connection with isOldConnection flag
+        const mappedOldConnection = oldConnection ? {
+            ...oldConnection,
+            isOldConnection: true as const,
+        } : null;
+
+        // Combine connections - these are the ones we'll return
+        const relevantConnections = [...topConnections, ...(mappedOldConnection ? [mappedOldConnection] : [])];
+        // Get wrapped data for each relevant connection (with caching)
+        const connectionsWrapped = await Promise.all(
+            relevantConnections.map(async ({ connectedUser }) => {
+                // Check cache
+                const [cached] = await db
+                    .select()
+                    .from(wrappedCache)
+                    .where(eq(wrappedCache.userId, connectedUser.id))
+                    .limit(1);
+
+                const now = new Date();
+                const cacheValid = cached && cached.lastUpdated &&
+                    (now.getTime() - new Date(cached.lastUpdated).getTime()) < CACHE_TTL_MS;
+                let newTwitterWrapped = (cached.data as any).twitterWrapped.weeklyRecap;
+                let wrappedData = cached.data as any;
+                // Always refresh Twitter wrapped data
+                const twitterUsername = extractUsername(connectedUser.twitter);
+                if (twitterUsername) {
+                    try {
+                        const freshTwitterWrapped = await generateTwitterWrapped(
+                            { firstName: connectedUser.firstName, lastName: connectedUser.lastName },
+                            twitterUsername
+                        );
+                        // Update only the twitterWrapped part
+                        newTwitterWrapped = freshTwitterWrapped.weeklyRecap;
+                    } catch (error) {
+                        console.error('Error refreshing Twitter wrapped data:', error);
+                        // Keep existing twitterWrapped if refresh fails
+                    }
+                }
+                if (!cacheValid) {
+                    // Cache invalid or doesn't exist, regenerate everything
+                    wrappedData = await calculateWrappedData(connectedUser);
+                }
+                wrappedData.twitterWrapped.weeklyRecap = newTwitterWrapped;
+
+
+
+
+                // Update cache with refreshed data
+                if (cached) {
+                    await db
+                        .update(wrappedCache)
+                        .set({
+                            data: wrappedData as any,
+                            lastUpdated: new Date(),
+                        })
+                        .where(eq(wrappedCache.userId, connectedUser.id));
+                    
+                    await db.update(users).set({
+                        weeklyRecap: newTwitterWrapped,
+                    }).where(eq(users.id, connectedUser.id));
+                } else {
+                    await db
+                        .insert(wrappedCache)
+                        .values({
+                            userId: connectedUser.id,
+                            data: wrappedData as any,
+                            lastUpdated: new Date(),
+                        });
+                }
+
+                // Find the connectionCreatedAt from userConnections
+                const connectionInfo = userConnections.find(c => c.connectedUser.id === connectedUser.id);
+
+                console.log('wrappedData', wrappedData);
+                console.log('connectionInfo', connectionInfo);
+
+                return {
+                    user: {
+                        id: connectedUser.id,
+                        firstName: connectedUser.firstName,
+                        lastName: connectedUser.lastName,
+                        phoneNumber: connectedUser.number,
+                        twitter: connectedUser.twitter,
+                        profilePicture: connectedUser.profilePicture,
+                    },
+                    wrapped: wrappedData,
+                    connectionCreatedAt: connectionInfo?.connectionCreatedAt?.toISOString() || null,
+                };
+            })
+        );
+
+        res.json({
+            connections: connectionsWrapped,
+        });
+    } catch (error) {
+        console.error('Error fetching connections wrapped data:', error);
+        res.status(500).json({
+            error: 'Failed to fetch connections wrapped data',
             details: error instanceof Error ? error.message : 'Unknown error'
         });
     }

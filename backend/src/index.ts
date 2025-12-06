@@ -52,8 +52,8 @@ app.use('/api/twitter', twitterRouter);
 app.use('/api/send', sendRouter);
 
 // Start server
-const server = app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
+const server = app.listen(Number(PORT), '0.0.0.0', () => {
+    console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
 });
 
 // Graceful shutdown

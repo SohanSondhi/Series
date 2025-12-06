@@ -26,7 +26,6 @@ async function seed() {
             number: '+19082008172', // Replace with your actual phone number for testing
             age: 25,
             location: 'New York, NY',
-            twitter: 'https://twitter.com/sohansondhi',
             bio: 'Building cool stuff and connecting with people!',
             weeklyRecap: 'Great week working on the Series hackathon project.',
         }).returning();
@@ -38,7 +37,6 @@ async function seed() {
             number: '+1111111111',
             age: 26,
             location: 'San Francisco, CA',
-            twitter: 'https://twitter.com/sarahchen',
             bio: 'Tech enthusiast and startup founder.',
             weeklyRecap: 'Launching a new AI startup this week focused on personalized learning.',
         }).returning();
@@ -50,7 +48,6 @@ async function seed() {
             number: '+2222222222',
             age: 28,
             location: 'Austin, TX',
-            twitter: 'https://twitter.com/alexrivera',
             bio: 'Software engineer and open source contributor.',
             weeklyRecap: 'Got promoted to Staff Engineer and shipped a major feature to production.',
         }).returning();
@@ -62,7 +59,6 @@ async function seed() {
             number: '+3333333333',
             age: 27,
             location: 'Miami, FL',
-            twitter: 'https://twitter.com/mayapatel',
             bio: 'Travel photographer and content creator.',
             weeklyRecap: 'Just returned from Tokyo and started planning a photography exhibition.',
         }).returning();

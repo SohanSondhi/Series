@@ -4,6 +4,8 @@ import { db } from '../db/index.js';
 import { users, connections, messages } from '../db/schema.js';
 import { eq, desc, sql, and } from 'drizzle-orm';
 import { generateWeeklyRecap } from '../services/llm.js';
+import { generateTwitterWrapped } from '../routes/wrapped.js';
+import { extractUsername } from '../routes/twitter.js';
 
 interface ConnectionSummary {
     name: string;
@@ -15,7 +17,7 @@ interface ConnectionSummary {
  * Get connection summaries for the wrapped message
  * Returns 2 top connections and 1 old connection the user hasn't talked to in a while
  */
-async function getConnectionSummaries(userPhone: string): Promise<ConnectionSummary[]> {
+export async function getConnectionSummaries(userPhone: string): Promise<ConnectionSummary[]> {
     try {
         // Find the user
         const [user] = await db
@@ -106,39 +108,68 @@ async function getConnectionSummaries(userPhone: string): Promise<ConnectionSumm
 
         const summaries: ConnectionSummary[] = [];
 
-        // Get top 2 connections (most messages)
-        const topConnections = sortedByMessageCount.slice(0, 2);
-        for (const conn of topConnections) {
-            const weeklyRecap = conn.connectedUser.weeklyRecap || '';
-            const name = `${conn.connectedUser.firstName} ${conn.connectedUser.lastName}`;
-
-            // Generate a short 10-word summary from the weekly recap using LLM
-            const shortSummary = await generateShortSummary(weeklyRecap, name);
-            
-            summaries.push({
-                name,
-                summary: shortSummary,
-                isOldConnection: false,
-            });
-        }
+        // Get top 2 connections (most messages) and mark them as not old
+        const topConnections = sortedByMessageCount.slice(0, 2).map(conn => ({
+            ...conn,
+            isOldConnection: false as const,
+        }));
 
         // Get 1 old connection (hasn't talked to in a while)
         // Find one that's not already in top connections
         const topConnectionIds = new Set(topConnections.map(c => c.connectedUser.id));
         const oldConnection = sortedByOldest.find(c => !topConnectionIds.has(c.connectedUser.id));
 
-        if (oldConnection) {
-            const weeklyRecap = oldConnection.connectedUser.weeklyRecap || '';
-            const name = `${oldConnection.connectedUser.firstName} ${oldConnection.connectedUser.lastName}`;
+        // Map old connection with isOldConnection flag
+        const mappedOldConnection = oldConnection ? {
+            ...oldConnection,
+            isOldConnection: true as const,
+        } : null;
 
-            const shortSummary = await generateShortSummary(weeklyRecap, name);
-            
+        // Combine connections
+        const combinedConnections = [...topConnections, ...(mappedOldConnection ? [mappedOldConnection] : [])];
+
+        for (const conn of combinedConnections) {
+            const isOldConnection = conn.isOldConnection;
+            console.log(`📝 Generating summary for ${conn.connectedUser.firstName} ${conn.connectedUser.lastName}`);
+            let weeklyRecap: string;
+            try {
+                const twitterUsername = extractUsername(conn.connectedUser.twitter);
+                console.log('twitterUsername', twitterUsername);
+
+                if (twitterUsername) {
+                    try {
+                        weeklyRecap = await generateTwitterWrapped(
+                            { firstName: conn.connectedUser.firstName, lastName: conn.connectedUser.lastName },
+                            twitterUsername
+                        ).then(result => result.weeklyRecap || '');
+                    } catch (error) {
+                        console.error('Error getting weekly recap:', error);
+                        weeklyRecap = conn.connectedUser.weeklyRecap || '';
+                    }
+                } else {
+                    weeklyRecap = conn.connectedUser.weeklyRecap || '';
+                }
+            } catch (error) {
+                console.error('Error processing connection:', error);
+                weeklyRecap = conn.connectedUser.weeklyRecap || '';
+            }
+
+            const name = `${conn.connectedUser.firstName} ${conn.connectedUser.lastName}`;
+
+            // Generate a short 10-word summary from the weekly recap using LLM
+            const shortSummary = await generateWeeklyRecap({
+                textContent: weeklyRecap,
+                maxWords: 10,
+            });
+            console.log('{shortSummary', shortSummary);
+
             summaries.push({
                 name,
                 summary: shortSummary,
-                isOldConnection: true,
+                isOldConnection,
             });
         }
+
 
         return summaries;
     } catch (error) {
@@ -147,36 +178,6 @@ async function getConnectionSummaries(userPhone: string): Promise<ConnectionSumm
     }
 }
 
-/**
- * Generate a short 10-word summary from a weekly recap using LLM
- */
-async function generateShortSummary(weeklyRecap: string, name: string): Promise<string> {
-    console.log(`📝 Generating summary for ${name}, weeklyRecap: "${weeklyRecap}"`);
-    
-    if (!weeklyRecap || weeklyRecap.trim().length === 0) {
-        console.log(`⚠️ No weeklyRecap found for ${name}`);
-        return 'Has been active on social media this week';
-    }
-
-    try {
-        console.log(`🤖 Calling LLM for ${name}...`);
-        const summary = await generateWeeklyRecap({
-            textContent: weeklyRecap,
-            context: `Summarize in exactly 10 words or less what ${name} did this week. Just give the summary, no intro.`,
-            maxWords: 15,
-        });
-        console.log(`✅ LLM returned for ${name}: "${summary}"`);
-        
-        // Clean up the summary - take just the first line/sentence
-        const cleanSummary = summary.split('\n')[0].split('.')[0].trim();
-        return cleanSummary || summary.trim();
-    } catch (error) {
-        console.error(`❌ Error generating short summary for ${name}:`, error);
-        // Return the weeklyRecap directly if LLM fails (truncated)
-        const words = weeklyRecap.split(/\s+/).slice(0, 10);
-        return words.join(' ') + (weeklyRecap.split(/\s+/).length > 10 ? '...' : '');
-    }
-}
 
 /**
  * Format the connections summary section for the message
@@ -268,22 +269,24 @@ export async function determineIfSummaryRelated(event: KafkaEvent): Promise<bool
     return hasKeyword || hasQuestionPattern || hasImperativePattern;
 }
 
+
+
 /**
  * Send a dynamic, conversational summary message based on the user's request
  */
 export async function sendSummaryTextMessage(event: KafkaEvent): Promise<void> {
     const data = event.data as MessageReceivedData;
-    
+
     // Generate the wrapped URL
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const wrappedUrl = `${frontendUrl}/wrapped/${data.from_phone}`;
-    
+
     // Get connection summaries
     const connectionSummaries = await getConnectionSummaries(data.from_phone);
-    
+
     // Format the complete message
     const message = formatConnectionsSummary(connectionSummaries, wrappedUrl);
-    
+
     await sendMessage([data.from_phone], message);
 }
 

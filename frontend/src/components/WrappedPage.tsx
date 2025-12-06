@@ -159,7 +159,7 @@ export default function WrappedPage() {
             // Fetch connections wrapped data if user has connections
             if (data.statistics.connectionCount > 0) {
                 try {
-                    const connectionsResponse = await fetch(`/api/wrapped/${number}/connections`);
+                    const connectionsResponse = await fetch(`/api/wrapped/${number}/connectionsWrapped`);
                     if (connectionsResponse.ok) {
                         const connectionsData = await connectionsResponse.json();
                         setConnectionsWrapped(connectionsData);
