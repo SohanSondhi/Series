@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db/index.js';
-import { users, messages, connections } from '../db/schema.js';
+import { users, messages, connections, messageCounterparties } from '../db/schema.js';
 import { eq, and, count, sql, desc } from 'drizzle-orm';
 import { aggregateTweetContent, generateWeeklyRecap } from '../services/llm.js';
 import { extractUsername, fetchTwitterUser, fetchRecentTweets, TwitterTweet } from './twitter.js';
@@ -141,15 +141,16 @@ router.get('/:phoneNumber', async (req, res) => {
         const messagesReceived = messageStats.find(s => s.direction === 'inbound')?.count || 0;
         const totalMessages = messagesSent + messagesReceived;
 
-        // Get top contacts
+        // Get top contacts from message_counterparties table (supports multiple counterparties)
         const topContacts = await db
             .select({
-                counterpartyPhone: messages.counterpartyPhone,
+                counterpartyPhone: messageCounterparties.counterpartyPhone,
                 messageCount: count(),
             })
-            .from(messages)
+            .from(messageCounterparties)
+            .innerJoin(messages, eq(messageCounterparties.messageId, messages.id))
             .where(eq(messages.userId, user.id))
-            .groupBy(messages.counterpartyPhone)
+            .groupBy(messageCounterparties.counterpartyPhone)
             .orderBy(desc(count()))
             .limit(10);
 
@@ -245,7 +246,7 @@ router.get('/:phoneNumber', async (req, res) => {
                 twitterWrapped = null;
             }
         } else {
-            console.log(`⚠️ No Twitter username found for user ${user.firstName} ${user.lastName} (phone: ${user.phoneNumber})`);
+            console.log(`⚠️ No Twitter username found for user ${user.firstName} ${user.lastName} (phone: ${user.id})`);
         }
 
         res.json({

@@ -115,7 +115,7 @@ export default function MessagesPage() {
         return (
             <div className="user-list__error">
                 <p>Error: {error}</p>
-                <button onClick={fetchMessages}>Retry</button>
+                <button onClick={() => fetchMessages()  }>Retry</button>
             </div>
         );
     }

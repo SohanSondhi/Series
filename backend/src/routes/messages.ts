@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { db } from '../db/index.js';
-import { messages, users } from '../db/schema.js';
-import { desc, eq, and, count, sql } from 'drizzle-orm';
+import { messages, users, messageCounterparties } from '../db/schema.js';
+import { desc, eq, and, count, sql, inArray } from 'drizzle-orm';
 
 const router = Router();
 
@@ -67,6 +67,28 @@ router.get('/', async (req, res) => {
 
         const totalCount = Number(totalResult[0]?.count || 0);
 
+        // Get all counterparties for the messages
+        const messageIds = allMessages.map(msg => msg.id);
+        const counterpartiesMap = new Map<number, string[]>();
+
+        if (messageIds.length > 0) {
+            const allCounterparties = await db
+                .select({
+                    messageId: messageCounterparties.messageId,
+                    counterpartyPhone: messageCounterparties.counterpartyPhone,
+                })
+                .from(messageCounterparties)
+                .where(inArray(messageCounterparties.messageId, messageIds));
+
+            // Group counterparties by message ID
+            for (const cp of allCounterparties) {
+                if (!counterpartiesMap.has(cp.messageId)) {
+                    counterpartiesMap.set(cp.messageId, []);
+                }
+                counterpartiesMap.get(cp.messageId)!.push(cp.counterpartyPhone);
+            }
+        }
+
         res.json({
             messages: allMessages.map(msg => ({
                 id: msg.id,
@@ -82,7 +104,8 @@ router.get('/', async (req, res) => {
                 messageText: msg.messageText,
                 direction: msg.direction,
                 timestamp: msg.timestamp,
-                counterpartyPhone: msg.counterpartyPhone,
+                counterpartyPhone: msg.counterpartyPhone, // Keep for backward compatibility
+                counterpartyPhones: counterpartiesMap.get(msg.id) || [], // New: array of all counterparties
                 createdAt: msg.createdAt,
             })),
             pagination: {

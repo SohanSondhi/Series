@@ -6,6 +6,38 @@ import LoopingCurvedLines from './UI/LoopingCurvedLines';
 import Waves from './UI/Waves';
 import PulsatingNodes from './UI/PulsatingNodes';
 
+function IntroSlide({
+    content,
+    onComplete,
+    scrollContainerRef
+}: {
+    content: string;
+    onComplete: () => void;
+    scrollContainerRef: React.RefObject<HTMLDivElement>;
+}) {
+    useEffect(() => {
+        if (scrollContainerRef.current) {
+            const timer = setTimeout(() => {
+                const introSlide = scrollContainerRef.current?.children[1] as HTMLElement;
+                if (introSlide) {
+                    introSlide.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [scrollContainerRef]);
+
+    return (
+        <div className="wrapped-slide wrapped-slide--intro">
+            <AnimatedText
+                text={content}
+                className="wrapped-slide__title"
+                onComplete={onComplete}
+            />
+        </div>
+    );
+}
+
 function MostActiveDaySlide({ dayName, messageCount }: { dayName: string; messageCount: number }) {
     const [isVisible, setIsVisible] = useState(false);
     const [showMessage, setShowMessage] = useState(false);
@@ -27,13 +59,14 @@ function MostActiveDaySlide({ dayName, messageCount }: { dayName: string; messag
             { threshold: 0.5 }
         );
 
-        if (containerRef.current) {
-            observer.observe(containerRef.current);
+        const currentContainer = containerRef.current;
+        if (currentContainer) {
+            observer.observe(currentContainer);
         }
 
         return () => {
-            if (containerRef.current) {
-                observer.unobserve(containerRef.current);
+            if (currentContainer) {
+                observer.unobserve(currentContainer);
             }
         };
     }, [isVisible]);
@@ -161,36 +194,20 @@ export default function WrappedSlides({ statistics, twitterRecap, phoneNumber, a
         switch (slide.type) {
             case 'intro': {
                 const slideIndex = index;
-
-                // Auto-scroll from loading to intro after a brief delay
-                useEffect(() => {
-                    if (index === 1 && scrollContainerRef.current) {
-                        const timer = setTimeout(() => {
-                            const introSlide = scrollContainerRef.current?.children[1] as HTMLElement;
-                            if (introSlide) {
-                                introSlide.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                            }
-                        }, 500);
-                        return () => clearTimeout(timer);
-                    }
-                }, [index]);
-
                 return (
-                    <div className="wrapped-slide wrapped-slide--intro">
-                        <AnimatedText
-                            text={slide.content}
-                            className="wrapped-slide__title"
-                            onComplete={() => {
-                                // Auto-scroll to next slide after 1 second pause
-                                if (scrollContainerRef.current && slideIndex < slides.length - 1) {
-                                    const nextSlide = scrollContainerRef.current.children[slideIndex + 1] as HTMLElement;
-                                    if (nextSlide) {
-                                        nextSlide.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                    }
+                    <IntroSlide
+                        content={slide.content}
+                        scrollContainerRef={scrollContainerRef}
+                        onComplete={() => {
+                            // Auto-scroll to next slide after 1 second pause
+                            if (scrollContainerRef.current && slideIndex < slides.length - 1) {
+                                const nextSlide = scrollContainerRef.current.children[slideIndex + 1] as HTMLElement;
+                                if (nextSlide) {
+                                    nextSlide.scrollIntoView({ behavior: 'smooth', block: 'start' });
                                 }
-                            }}
-                        />
-                    </div>
+                            }
+                        }}
+                    />
                 );
             }
 

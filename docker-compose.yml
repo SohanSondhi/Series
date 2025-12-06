@@ -69,6 +69,10 @@ services:
       KAFKA_SASL_MECHANISM: ${KAFKA_SASL_MECHANISM:-plain}
       KAFKA_TLS_ENABLED: ${KAFKA_TLS_ENABLED:-true}
       KAFKA_FROM_BEGINNING: ${KAFKA_FROM_BEGINNING:-false}
+      # Series API configuration
+      SERIES_API_BASE: ${SERIES_API_BASE:-}
+      SERIES_API_KEY: ${SERIES_API_KEY:-}
+      SENDER_NUMBER: ${SENDER_NUMBER:-}
     volumes:
       - ./backend:/app
       - /app/node_modules

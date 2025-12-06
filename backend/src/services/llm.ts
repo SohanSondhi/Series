@@ -129,13 +129,13 @@ Please generate the weekly recap now:`;
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(
-                errorData.error ||
+                (errorData as any).error ||
                 `Llama API error: ${response.status} ${response.statusText}`
             );
         }
 
-        const data = await response.json();
-        const recap = data.response;
+        const data = await response.json() as { response: string };
+        const recap = data.response as string;
 
         if (!recap) {
             throw new Error('No recap generated from Llama API');
@@ -208,12 +208,12 @@ Please generate the weekly recap now:`;
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(
-                errorData.error?.message ||
+                (errorData as any).error?.message ||
                 `OpenAI API error: ${response.status} ${response.statusText}`
             );
         }
 
-        const data = await response.json();
+        const data = await response.json() as { choices: { message: { content: string } }[] };
         const recap = data.choices?.[0]?.message?.content;
 
         if (!recap) {
