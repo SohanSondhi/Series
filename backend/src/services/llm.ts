@@ -66,6 +66,7 @@ Analyze the user's recent posts and produce one sentence recap of what they did:
 - Be direct and to the point.
 - Make sure it is one sentence. ~10 words
 - Make it third person, past tense.
+- Do NOT use “the user,” “they,” or any pronoun.
 
 ## Example Output
 Launching a new AI startup this week focused on personalized learning.
