@@ -1,6 +1,13 @@
 # Series Hax Project
 
+<img width="794" height="483" alt="Screenshot 2025-12-06 at 4 02 00 PM" src="https://github.com/user-attachments/assets/8fe99e47-238c-4542-a9de-9a195c02a0e2" />
+
+---
+
+## Demo 
 [Demo Video](demo.MOV)
+
+YouTube Demo: https://www.youtube.com/watch?v=kEuqcATzOWE 
 
 ## Tech Stack
 
