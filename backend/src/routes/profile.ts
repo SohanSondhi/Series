@@ -11,6 +11,7 @@ const transformUser = (user: typeof users.$inferSelect) => ({
     first_name: user.firstName,
     last_name: user.lastName,
     number: user.number,
+    age: user.age,
     location: user.location,
     instagram: user.instagram,
     twitter: user.twitter,
@@ -20,6 +21,68 @@ const transformUser = (user: typeof users.$inferSelect) => ({
     weekly_recap: user.weeklyRecap,
     created_at: user.createdAt?.toISOString(),
     updated_at: user.updatedAt?.toISOString(),
+});
+
+// POST /api/profile - Create a new profile
+router.post('/', async (req, res) => {
+    try {
+        const {
+            first_name,
+            last_name,
+            number,
+            age,
+            location,
+            instagram,
+            twitter,
+            linkedin,
+            profile_picture,
+            bio,
+            weekly_recap,
+        } = req.body;
+
+        // Validate required fields
+        if (!first_name || !last_name || !number) {
+            return res.status(400).json({
+                error: 'First name, last name, and phone number are required',
+            });
+        }
+
+        // Check if phone number already exists
+        const [existingUser] = await db
+            .select()
+            .from(users)
+            .where(eq(users.number, number));
+
+        if (existingUser) {
+            return res.status(409).json({ error: 'Phone number already in use' });
+        }
+
+        // Create new user
+        const [newUser] = await db
+            .insert(users)
+            .values({
+                firstName: first_name,
+                lastName: last_name,
+                number,
+                age: age ? (typeof age === 'string' ? parseInt(age) : age) : null,
+                location: location || null,
+                instagram: instagram || null,
+                twitter: twitter || null,
+                linkedin: linkedin || null,
+                profilePicture: profile_picture || null,
+                bio: bio || '',
+                weeklyRecap: weekly_recap || null,
+            })
+            .returning();
+
+        res.status(201).json(transformUser(newUser));
+    } catch (error: any) {
+        console.error('Error creating profile:', error);
+        if (error.code === '23505') {
+            return res.status(409).json({ error: 'Phone number already in use' });
+        }
+        res.status(500).json({ error: 'Failed to create profile' });
+    }
 });
 
 // GET /api/profile/:phoneNumber - Get profile by phone number
@@ -44,6 +107,7 @@ router.get('/:phoneNumber', async (req, res) => {
                 firstName: users.firstName,
                 lastName: users.lastName,
                 number: users.number,
+                age: users.age,
                 location: users.location,
                 instagram: users.instagram,
                 twitter: users.twitter,
@@ -80,6 +144,7 @@ router.put('/:phoneNumber', async (req, res) => {
             first_name,
             last_name,
             number,
+            age,
             location,
             instagram,
             twitter,
@@ -125,6 +190,7 @@ router.put('/:phoneNumber', async (req, res) => {
                 firstName: first_name,
                 lastName: last_name,
                 number: number || phoneNumber, // Use existing number if not provided
+                age: age !== undefined && age !== null && age !== '' ? (typeof age === 'string' ? parseInt(age) : Number(age)) : null,
                 location: location || null,
                 instagram: instagram || null,
                 twitter: twitter || null,

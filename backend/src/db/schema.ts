@@ -7,6 +7,7 @@ export const users = pgTable('users', {
     firstName: varchar('first_name', { length: 100 }).notNull(),
     lastName: varchar('last_name', { length: 100 }).notNull(),
     number: varchar('number', { length: 20 }).notNull().unique(),
+    age: integer('age'),
     location: varchar('location', { length: 200 }),
     instagram: varchar('instagram', { length: 100 }),
     twitter: varchar('twitter', { length: 100 }),
