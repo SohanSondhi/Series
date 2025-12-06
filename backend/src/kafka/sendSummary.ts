@@ -20,7 +20,7 @@ interface ConnectionSummary {
  * Get connection summaries for the wrapped message
  * Returns 2 top connections and 1 old connection the user hasn't talked to in a while
  */
-export async function getConnectionSummaries(userPhone: string): Promise<ConnectionSummary[]> {
+export async function getConnectionSummaries(userPhone: string, useLLM: boolean): Promise<ConnectionSummary[]> {
     try {
         // Find the user
         const [user] = await db
@@ -133,38 +133,55 @@ export async function getConnectionSummaries(userPhone: string): Promise<Connect
 
         for (const conn of combinedConnections) {
             const isOldConnection = conn.isOldConnection;
-            console.log(`📝 Generating summary for ${conn.connectedUser.firstName} ${conn.connectedUser.lastName}`);
+            console.log(`📝 Generating summary for ${conn.connectedUser.firstName} ${conn.connectedUser.lastName} (useLLM: ${useLLM})`);
             let weeklyRecap: string;
-            try {
-                const twitterUsername = extractUsername(conn.connectedUser.twitter);
-                console.log('twitterUsername', twitterUsername);
 
-                if (twitterUsername) {
-                    try {
-                        weeklyRecap = await generateTwitterWrapped(
-                            { firstName: conn.connectedUser.firstName, lastName: conn.connectedUser.lastName },
-                            twitterUsername
-                        ).then(result => result.weeklyRecap || '');
-                    } catch (error) {
-                        console.error('Error getting weekly recap:', error);
+            if (useLLM) {
+                // Only update Twitter weekly recap if useLLM is true
+                try {
+                    const twitterUsername = extractUsername(conn.connectedUser.twitter);
+                    console.log('twitterUsername', twitterUsername);
+
+                    if (twitterUsername) {
+                        try {
+                            weeklyRecap = await generateTwitterWrapped(
+                                { firstName: conn.connectedUser.firstName, lastName: conn.connectedUser.lastName },
+                                twitterUsername
+                            ).then(result => result.weeklyRecap || '');
+                        } catch (error) {
+                            console.error('Error getting weekly recap:', error);
+                            weeklyRecap = conn.connectedUser.weeklyRecap || '';
+                        }
+                    } else {
                         weeklyRecap = conn.connectedUser.weeklyRecap || '';
                     }
-                } else {
+                } catch (error) {
+                    console.error('Error processing connection:', error);
                     weeklyRecap = conn.connectedUser.weeklyRecap || '';
                 }
-            } catch (error) {
-                console.error('Error processing connection:', error);
+            } else {
+                // If useLLM is false, just use existing weeklyRecap without updating
+                // DO NOT call any LLM or Twitter API functions
                 weeklyRecap = conn.connectedUser.weeklyRecap || '';
+                console.log(`⚠️ useLLM is false - skipping LLM calls, using existing weeklyRecap: "${weeklyRecap || 'EMPTY'}"`);
             }
 
             const name = `${conn.connectedUser.firstName} ${conn.connectedUser.lastName}`;
 
-            // Generate a short 10-word summary from the weekly recap using LLM
-            const shortSummary = await generateWeeklyRecap({
-                textContent: weeklyRecap,
-                maxWords: 10,
-            });
-            console.log('{shortSummary', shortSummary);
+            let shortSummary: string;
+            if (useLLM && weeklyRecap) {
+                // Generate a short 10-word summary from the weekly recap using LLM
+                console.log('🤖 Calling LLM to generate short summary (useLLM=true)');
+                shortSummary = await generateWeeklyRecap({
+                    textContent: weeklyRecap,
+                    maxWords: 10,
+                });
+                console.log('shortSummary', shortSummary);
+            } else {
+                // If useLLM is false or no weeklyRecap, use existing recap directly (NO LLM CALL)
+                shortSummary = weeklyRecap || 'No summary available';
+                console.log(`✅ Skipping LLM call (useLLM=${useLLM}), using existing summary: "${shortSummary}"`);
+            }
 
             summaries.push({
                 name,
@@ -286,11 +303,12 @@ export async function sendSummaryTextMessage(event: KafkaEvent): Promise<void> {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const wrappedUrl = `${frontendUrl}/wrapped/${data.from_phone}`;
 
-    // Get connection summaries
-    const connectionSummaries = await getConnectionSummaries(data.from_phone);
+    // Get connection summaries (useLLM: true to generate fresh Twitter recaps and summaries)
+    const connectionSummaries = await getConnectionSummaries(data.from_phone, false);
 
     // Format the complete message
     const message = formatConnectionsSummary(connectionSummaries, wrappedUrl);
+    console.log('message', message);
 
     await sendMessage([data.from_phone], message);
 
