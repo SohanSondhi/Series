@@ -127,6 +127,28 @@ interface WrappedSlidesProps {
             count: number;
         }>;
     };
+    connectionsWrapped?: {
+        connections: Array<{
+            user: {
+                id: number;
+                firstName: string;
+                lastName: string;
+                phoneNumber: string;
+                twitter?: string;
+            };
+            wrapped: {
+                statistics: {
+                    totalMessages: number;
+                    messagesSent: number;
+                    messagesReceived: number;
+                    connectionCount: number;
+                };
+                twitterWrapped?: {
+                    weeklyRecap: string | null;
+                } | null;
+            };
+        }>;
+    } | null;
 }
 
 type Slide =
@@ -135,6 +157,9 @@ type Slide =
     | { type: 'twitter'; content: string | null }
     | { type: 'mostActiveDay'; date: string; messageCount: number }
     | { type: 'topContact'; phoneNumber: string; messageCount: number; name: string | null }
+    | { type: 'connectionsIntro'; content: string }
+    | { type: 'connectionTwitter'; userName: string; recap: string | null }
+    | { type: 'competition'; label: string; metric: 'totalMessages' | 'connectionCount'; userValue: number; connections: Array<{ name: string; value: number }> }
     | {
         type: 'summary';
         statistics: {
@@ -147,6 +172,215 @@ type Slide =
             dateRange?: { firstMessage: string; lastMessage: string } | null;
         }
     };
+
+function ConnectionsIntroSlide({
+    content,
+    onComplete
+}: {
+    content: string;
+    onComplete: () => void;
+}) {
+    const [isVisible, setIsVisible] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting && !isVisible) {
+                        setIsVisible(true);
+                        // Call onComplete after animation finishes (5s animation + 0.3s buffer)
+                        setTimeout(() => {
+                            onComplete();
+                        }, 5000);
+                    }
+                });
+            },
+            { threshold: 0.5 }
+        );
+
+        const currentContainer = containerRef.current;
+        if (currentContainer) {
+            observer.observe(currentContainer);
+        }
+
+        return () => {
+            if (currentContainer) {
+                observer.unobserve(currentContainer);
+            }
+        };
+    }, [isVisible, onComplete]);
+
+    return (
+        <div ref={containerRef} className="wrapped-slide wrapped-slide--connections-intro">
+            {isVisible && (
+                <div className="wrapped-slide__connections-intro-text">
+                    {content}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function ConnectionTwitterSlide({ userName, recap }: { userName: string; recap: string | null }) {
+    const [isVisible, setIsVisible] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting && !isVisible) {
+                        setIsVisible(true);
+                    }
+                });
+            },
+            { threshold: 0.5 }
+        );
+
+        const currentContainer = containerRef.current;
+        if (currentContainer) {
+            observer.observe(currentContainer);
+        }
+
+        return () => {
+            if (currentContainer) {
+                observer.unobserve(currentContainer);
+            }
+        };
+    }, [isVisible]);
+
+    return (
+        <div ref={containerRef} className="wrapped-slide wrapped-slide--connection-twitter">
+            <LoopingCurvedLines side="left" />
+            <div className="wrapped-slide__twitter-container">
+                <h2 className="wrapped-slide__title">{userName}'s Twitter Recap</h2>
+                <div className="wrapped-slide__twitter-content-wrapper">
+                    {recap ? (
+                        <div className="wrapped-slide__twitter-content">
+                            {parseTwitterRecap(recap)}
+                        </div>
+                    ) : (
+                        <p>No Twitter recap available</p>
+                    )}
+                </div>
+            </div>
+            <LoopingCurvedLines side="right" />
+        </div>
+    );
+}
+
+function CompetitionChartSlide({
+    label,
+    userValue,
+    connections
+}: {
+    label: string;
+    userValue: number;
+    connections: Array<{ name: string; value: number }>;
+}) {
+    const [isVisible, setIsVisible] = useState(false);
+    const [animationStarted, setAnimationStarted] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting && !isVisible) {
+                        setIsVisible(true);
+                        // Start animation after a brief delay
+                        setTimeout(() => {
+                            setAnimationStarted(true);
+                        }, 300);
+                    }
+                });
+            },
+            { threshold: 0.5 }
+        );
+
+        const currentContainer = containerRef.current;
+        if (currentContainer) {
+            observer.observe(currentContainer);
+        }
+
+        return () => {
+            if (currentContainer) {
+                observer.unobserve(currentContainer);
+            }
+        };
+    }, [isVisible]);
+
+    // Prepare data for comparison - combine user and connections
+    const allData = [
+        { name: 'You', value: userValue },
+        ...connections.map(c => ({ name: c.name, value: c.value }))
+    ];
+
+    // Sort by value to find the actual winner
+    const sortedData = [...allData].sort((a, b) => b.value - a.value);
+    const winnerIndex = allData.findIndex(d => d.value === sortedData[0].value);
+
+    // Find max value for scaling
+    const maxValue = Math.max(...allData.map(d => d.value), 1);
+
+    // Create animation timing for each bar
+    // The winner should finish last (slowest), others finish faster
+    // One non-winner should start fast (teasing) but slow down
+    const getAnimationDuration = (index: number, isWinner: boolean) => {
+        if (isWinner) {
+            return 3.8; // Winner finishes last - longest duration
+        }
+        // Pick one non-winner to be the "teaser" - starts fast but slows
+        const teaserIndex = winnerIndex === 0 ? 1 : 0;
+        if (index === teaserIndex) {
+            return 3.2; // Teaser finishes before winner but after others
+        }
+        // Others finish quickly - varying speeds for racing effect
+        return 2.2 + (index * 0.15);
+    };
+
+    return (
+        <div ref={containerRef} className="wrapped-slide wrapped-slide--competition">
+            <PulsatingNodes />
+            {isVisible && (
+                <>
+                    <h2 className="wrapped-slide__title">How You Compare</h2>
+                    <div className="wrapped-slide__competition-label">{label}</div>
+                    <div className="wrapped-slide__competition-chart">
+                        {allData.map((person, index) => {
+                            const percentage = (person.value / maxValue) * 100;
+                            const isWinner = index === winnerIndex;
+                            const duration = getAnimationDuration(index, isWinner);
+                            // Stagger the start slightly for racing effect - winner starts a bit later
+                            const delay = isWinner ? index * 0.2 : index * 0.1;
+
+                            return (
+                                <div key={index} className="wrapped-slide__competition-bar-wrapper">
+                                    <div className="wrapped-slide__competition-bar-label">{person.name}</div>
+                                    <div className="wrapped-slide__competition-bar-container">
+                                        <div
+                                            className={`wrapped-slide__competition-bar ${animationStarted ? 'wrapped-slide__competition-bar--racing' : ''}`}
+                                            style={{
+                                                '--target-width': `${percentage}%`,
+                                                '--animation-duration': `${duration}s`,
+                                                '--animation-delay': `${delay}s`,
+                                            } as React.CSSProperties}
+                                        >
+                                            <span className="wrapped-slide__competition-bar-value">
+                                                {person.value}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}
 
 function TopContactSlide({ phoneNumber, messageCount, name }: { phoneNumber: string; messageCount: number; name: string | null }) {
     const [isVisible, setIsVisible] = useState(false);
@@ -213,7 +447,7 @@ function TopContactSlide({ phoneNumber, messageCount, name }: { phoneNumber: str
     );
 }
 
-export default function WrappedSlides({ statistics, twitterRecap, phoneNumber, allStatistics, breakdown }: WrappedSlidesProps) {
+export default function WrappedSlides({ statistics, twitterRecap, phoneNumber, allStatistics, breakdown, connectionsWrapped }: WrappedSlidesProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
@@ -275,6 +509,45 @@ export default function WrappedSlides({ statistics, twitterRecap, phoneNumber, a
             messageCount: breakdown.topContacts[0].messageCount,
             name: breakdown.topContacts[0].name,
         }] : []),
+        // Add connections section if connections data is available
+        ...(connectionsWrapped?.connections && connectionsWrapped.connections.length > 0 ? [
+            {
+                type: 'connectionsIntro' as const,
+                content: "Now let's see what your connections have been up to this past week!",
+            },
+            // Add Twitter recap slides for connections that have Twitter recaps
+            ...connectionsWrapped.connections
+                .filter(conn => {
+                    const recap = conn.wrapped.twitterWrapped?.weeklyRecap;
+                    return recap && recap.trim().length > 0;
+                })
+                .map(conn => ({
+                    type: 'connectionTwitter' as const,
+                    userName: `${conn.user.firstName} ${conn.user.lastName}`,
+                    recap: conn.wrapped.twitterWrapped?.weeklyRecap || null,
+                })),
+            // Add competition charts - one for total messages, one for connection count
+            {
+                type: 'competition' as const,
+                label: `Total Messages`,
+                metric: 'totalMessages' as const,
+                userValue: statistics.totalMessages,
+                connections: connectionsWrapped.connections.map(conn => ({
+                    name: `${conn.user.firstName} ${conn.user.lastName}`,
+                    value: conn.wrapped.statistics.totalMessages,
+                })),
+            },
+            {
+                type: 'competition' as const,
+                label: `Total Connections`,
+                metric: 'connectionCount' as const,
+                userValue: allStatistics?.connectionCount || 0,
+                connections: connectionsWrapped.connections.map(conn => ({
+                    name: `${conn.user.firstName} ${conn.user.lastName}`,
+                    value: conn.wrapped.statistics.connectionCount || 0,
+                })),
+            },
+        ] : []),
         {
             type: 'summary',
             statistics: {
@@ -411,6 +684,39 @@ export default function WrappedSlides({ statistics, twitterRecap, phoneNumber, a
             case 'topContact':
                 return (
                     <TopContactSlide phoneNumber={slide.phoneNumber} messageCount={slide.messageCount} name={slide.name} />
+                );
+
+            case 'connectionsIntro': {
+                const slideIndex = index;
+                return (
+                    <ConnectionsIntroSlide
+                        content={slide.content}
+                        onComplete={() => {
+                            setTimeout(() => {
+                                if (scrollContainerRef.current && slideIndex < slides.length - 1) {
+                                    const nextSlide = scrollContainerRef.current.children[slideIndex + 1] as HTMLElement;
+                                    if (nextSlide) {
+                                        nextSlide.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                    }
+                                }
+                            }, 100);
+                        }}
+                    />
+                );
+            }
+
+            case 'connectionTwitter':
+                return (
+                    <ConnectionTwitterSlide userName={slide.userName} recap={slide.recap} />
+                );
+
+            case 'competition':
+                return (
+                    <CompetitionChartSlide
+                        label={slide.label}
+                        userValue={slide.userValue}
+                        connections={slide.connections}
+                    />
                 );
 
             default:

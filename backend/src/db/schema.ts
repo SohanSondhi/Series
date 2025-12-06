@@ -1,4 +1,4 @@
-import { pgTable, serial, varchar, text, timestamp, index, integer, unique } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, index, integer, unique, jsonb } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 
@@ -73,10 +73,24 @@ export const messagesRelations = relations(messages, ({ one }) => ({
     }),
 }));
 
+// Wrapped cache table for storing calculated wrapped data
+export const wrappedCache = pgTable('wrapped_cache', {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }).unique(),
+    data: jsonb('data').notNull(), // Store the full wrapped data as JSON
+    lastUpdated: timestamp('last_updated').defaultNow().notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+    userIdIdx: index('idx_wrapped_cache_user_id').on(table.userId),
+    lastUpdatedIdx: index('idx_wrapped_cache_last_updated').on(table.lastUpdated),
+}));
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Connection = typeof connections.$inferSelect;
 export type NewConnection = typeof connections.$inferInsert;
 export type Message = typeof messages.$inferSelect;
 export type NewMessage = typeof messages.$inferInsert;
+export type WrappedCache = typeof wrappedCache.$inferSelect;
+export type NewWrappedCache = typeof wrappedCache.$inferInsert;
 

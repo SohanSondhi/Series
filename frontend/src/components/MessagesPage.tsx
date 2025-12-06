@@ -152,7 +152,7 @@ export default function MessagesPage() {
 
                 <div style={{ padding: '1rem', backgroundColor: '#f8f9fa', marginBottom: '1rem', borderRadius: '8px' }}>
                     <p style={{ margin: 0, fontSize: '0.9rem', color: '#666' }}>
-                        Total Messages: <strong>{pagination.total}</strong> |
+                        Total Messages <strong>{pagination.total}</strong> |
                         Showing: <strong>{messages.length}</strong>
                     </p>
                 </div>

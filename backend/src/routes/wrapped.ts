@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { db } from '../db/index.js';
-import { users, messages, connections } from '../db/schema.js';
-import { eq, and, count, sql, desc } from 'drizzle-orm';
+import { users, messages, connections, wrappedCache } from '../db/schema.js';
+import { eq, and, count, sql, desc, gte } from 'drizzle-orm';
 import { aggregateTweetContent, generateWeeklyRecap } from '../services/llm.js';
 import { extractUsername, fetchTwitterUser, fetchRecentTweets, TwitterTweet } from './twitter.js';
 
@@ -22,6 +22,9 @@ const LLM_CONTEXT_TEMPLATE = (firstName: string, lastName: string, username?: st
 };
 
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+// Cache TTL: 1 hour in milliseconds
+const CACHE_TTL_MS = 60 * 60 * 1000;
 
 /**
  * Helper function to generate Twitter wrapped data with fallback handling
@@ -101,8 +104,221 @@ async function generateTwitterWrapped(
 }
 
 /**
+ * Calculate wrapped data for a user (extracted for reuse)
+ */
+async function calculateWrappedData(user: typeof users.$inferSelect) {
+    // Get total message count (messages where user is the sender)
+    const messageCount = await db
+        .select({ count: count() })
+        .from(messages)
+        .where(eq(messages.userId, user.id));
+
+    const totalMessages = messageCount[0]?.count || 0;
+    const messagesSent = totalMessages;
+
+    // Get messages received (messages where user's phone number appears in messageRecipients array)
+    const messagesReceivedCount = await db
+        .select({ count: count() })
+        .from(messages)
+        .where(sql`${sql.raw(`'${user.number.replace(/'/g, "''")}'`)} = ANY(${messages.messageRecipients})`);
+
+    const messagesReceived = Number(messagesReceivedCount[0]?.count || 0);
+
+    // Get top contacts by counting occurrences in messageRecipients arrays
+    const allUserMessages = await db
+        .select({
+            messageRecipients: messages.messageRecipients,
+        })
+        .from(messages)
+        .where(eq(messages.userId, user.id));
+
+    const contactCounts = new Map<string, number>();
+    allUserMessages.forEach(msg => {
+        if (msg.messageRecipients) {
+            msg.messageRecipients.forEach(phone => {
+                contactCounts.set(phone, (contactCounts.get(phone) || 0) + 1);
+            });
+        }
+    });
+
+    const topContactsRaw = Array.from(contactCounts.entries())
+        .map(([phone, count]) => ({ counterpartyPhone: phone, messageCount: count }))
+        .sort((a, b) => b.messageCount - a.messageCount)
+        .slice(0, 10);
+
+    const adminNumber = process.env.SENDER_NUMBER || null;
+
+    const topContacts = await Promise.all(
+        topContactsRaw.map(async (contact) => {
+            if (adminNumber && contact.counterpartyPhone === adminNumber) {
+                return {
+                    phoneNumber: contact.counterpartyPhone,
+                    messageCount: contact.messageCount,
+                    name: 'Your AI Friend Laura',
+                };
+            }
+
+            const [contactUser] = await db
+                .select({
+                    firstName: users.firstName,
+                    lastName: users.lastName,
+                })
+                .from(users)
+                .where(eq(users.number, contact.counterpartyPhone))
+                .limit(1);
+
+            if (contactUser &&
+                !(contactUser.firstName === 'Unknown' && contactUser.lastName === 'User')) {
+                return {
+                    phoneNumber: contact.counterpartyPhone,
+                    messageCount: contact.messageCount,
+                    name: `${contactUser.firstName} ${contactUser.lastName}`,
+                };
+            }
+
+            return {
+                phoneNumber: contact.counterpartyPhone,
+                messageCount: contact.messageCount,
+                name: null,
+            };
+        })
+    );
+
+    const messagesByDay = await db
+        .select({
+            dayOfWeek: sql<number>`EXTRACT(DOW FROM ${messages.timestamp})`,
+            count: count(),
+        })
+        .from(messages)
+        .where(eq(messages.userId, user.id))
+        .groupBy(sql`EXTRACT(DOW FROM ${messages.timestamp})`)
+        .orderBy(sql`EXTRACT(DOW FROM ${messages.timestamp})`);
+
+    const messagesByHour = await db
+        .select({
+            hour: sql<number>`EXTRACT(HOUR FROM ${messages.timestamp})`,
+            count: count(),
+        })
+        .from(messages)
+        .where(eq(messages.userId, user.id))
+        .groupBy(sql`EXTRACT(HOUR FROM ${messages.timestamp})`)
+        .orderBy(sql`EXTRACT(HOUR FROM ${messages.timestamp})`);
+
+    const dateRange = await db
+        .select({
+            firstMessage: sql<Date>`MIN(${messages.timestamp})`,
+            lastMessage: sql<Date>`MAX(${messages.timestamp})`,
+        })
+        .from(messages)
+        .where(eq(messages.userId, user.id));
+
+    const connectionCount = await db
+        .select({ count: count() })
+        .from(connections)
+        .where(eq(connections.userId, user.id));
+
+    const avgMessageLength = await db
+        .select({
+            avgLength: sql<number>`AVG(LENGTH(${messages.messageText}))`,
+        })
+        .from(messages)
+        .where(eq(messages.userId, user.id));
+
+    const longestMessage = await db
+        .select({
+            messageText: messages.messageText,
+            length: sql<number>`LENGTH(${messages.messageText})`,
+            timestamp: messages.timestamp,
+        })
+        .from(messages)
+        .where(eq(messages.userId, user.id))
+        .orderBy(desc(sql`LENGTH(${messages.messageText})`))
+        .limit(1);
+
+    const mostActiveDay = await db
+        .select({
+            date: sql<Date>`DATE(${messages.timestamp})`,
+            count: count(),
+        })
+        .from(messages)
+        .where(eq(messages.userId, user.id))
+        .groupBy(sql`DATE(${messages.timestamp})`)
+        .orderBy(desc(count()))
+        .limit(1);
+
+    let twitterWrapped = null;
+    const twitterUsername = extractUsername(user.twitter);
+
+    if (twitterUsername) {
+        try {
+            twitterWrapped = await generateTwitterWrapped(
+                { firstName: user.firstName, lastName: user.lastName },
+                twitterUsername
+            );
+        } catch (error) {
+            console.error('❌ Unexpected error in generateTwitterWrapped:', error);
+            twitterWrapped = null;
+        }
+    }
+
+    return {
+        user: {
+            id: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            phoneNumber: user.number,
+        },
+        statistics: {
+            totalMessages,
+            messagesSent,
+            messagesReceived,
+            connectionCount: connectionCount[0]?.count || 0,
+            averageMessageLength: avgMessageLength[0]?.avgLength
+                ? Math.round(Number(avgMessageLength[0].avgLength))
+                : 0,
+            longestMessage: longestMessage[0]
+                ? {
+                    text: longestMessage[0].messageText,
+                    length: Number(longestMessage[0].length),
+                    timestamp: longestMessage[0].timestamp,
+                }
+                : null,
+            dateRange: dateRange[0]
+                ? {
+                    firstMessage: dateRange[0].firstMessage,
+                    lastMessage: dateRange[0].lastMessage,
+                }
+                : null,
+            mostActiveDay: mostActiveDay[0]
+                ? {
+                    date: mostActiveDay[0].date,
+                    messageCount: mostActiveDay[0].count,
+                }
+                : null,
+        },
+        breakdown: {
+            topContacts: topContacts.map(contact => ({
+                phoneNumber: contact.phoneNumber,
+                messageCount: contact.messageCount,
+                name: contact.name || null,
+            })),
+            messagesByDayOfWeek: messagesByDay.map(day => ({
+                day: dayNames[Number(day.dayOfWeek)],
+                dayNumber: Number(day.dayOfWeek),
+                count: day.count,
+            })),
+            messagesByHour: messagesByHour.map(hour => ({
+                hour: Number(hour.hour),
+                count: hour.count,
+            })),
+        },
+        twitterWrapped: twitterWrapped,
+    };
+}
+
+/**
  * GET /api/wrapped/:phoneNumber
- * Get wrapped message statistics for a user by phone number
+ * Get wrapped message statistics for a user by phone number (with caching)
  */
 router.get('/:phoneNumber', async (req, res) => {
     try {
@@ -123,244 +339,146 @@ router.get('/:phoneNumber', async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        // Get total message count (messages where user is the sender)
-        const messageCount = await db
-            .select({ count: count() })
-            .from(messages)
-            .where(eq(messages.userId, user.id));
-
-        const totalMessages = messageCount[0]?.count || 0;
-        const messagesSent = totalMessages;
-
-        // Get messages received (messages where user's phone number appears in messageRecipients array)
-        const messagesReceivedCount = await db
-            .select({ count: count() })
-            .from(messages)
-            .where(sql`${sql.raw(`'${user.number.replace(/'/g, "''")}'`)} = ANY(${messages.messageRecipients})`);
-
-        const messagesReceived = Number(messagesReceivedCount[0]?.count || 0);
-
-        // Get top contacts by counting occurrences in messageRecipients arrays
-        // We need to unnest the arrays and count
-        const allUserMessages = await db
-            .select({
-                messageRecipients: messages.messageRecipients,
-            })
-            .from(messages)
-            .where(eq(messages.userId, user.id));
-
-        // Count occurrences of each phone number across all messageRecipients arrays
-        const contactCounts = new Map<string, number>();
-        allUserMessages.forEach(msg => {
-            if (msg.messageRecipients) {
-                msg.messageRecipients.forEach(phone => {
-                    contactCounts.set(phone, (contactCounts.get(phone) || 0) + 1);
-                });
-            }
-        });
-
-        // Convert to array and sort by count
-        const topContactsRaw = Array.from(contactCounts.entries())
-            .map(([phone, count]) => ({ counterpartyPhone: phone, messageCount: count }))
-            .sort((a, b) => b.messageCount - a.messageCount)
-            .slice(0, 10);
-
-        // Get admin number from environment
-        const adminNumber = process.env.SENDER_NUMBER || null;
-
-        // Fetch user info for each top contact to get names
-        const topContacts = await Promise.all(
-            topContactsRaw.map(async (contact) => {
-                // Check if this is the admin number
-                if (adminNumber && contact.counterpartyPhone === adminNumber) {
-                    return {
-                        phoneNumber: contact.counterpartyPhone,
-                        messageCount: contact.messageCount,
-                        name: 'Your AI Friend Laura',
-                    };
-                }
-
-                // Try to find user by phone number
-                const [contactUser] = await db
-                    .select({
-                        firstName: users.firstName,
-                        lastName: users.lastName,
-                    })
-                    .from(users)
-                    .where(eq(users.number, contact.counterpartyPhone))
-                    .limit(1);
-
-                // If user found and has a name (not "Unknown User"), use it
-                if (contactUser &&
-                    !(contactUser.firstName === 'Unknown' && contactUser.lastName === 'User')) {
-                    return {
-                        phoneNumber: contact.counterpartyPhone,
-                        messageCount: contact.messageCount,
-                        name: `${contactUser.firstName} ${contactUser.lastName}`,
-                    };
-                }
-
-                // Otherwise, return without name (frontend will show phone number)
-                return {
-                    phoneNumber: contact.counterpartyPhone,
-                    messageCount: contact.messageCount,
-                    name: null,
-                };
-            })
-        );
-
-        // Get messages by day of week
-        const messagesByDay = await db
-            .select({
-                dayOfWeek: sql<number>`EXTRACT(DOW FROM ${messages.timestamp})`,
-                count: count(),
-            })
-            .from(messages)
-            .where(eq(messages.userId, user.id))
-            .groupBy(sql`EXTRACT(DOW FROM ${messages.timestamp})`)
-            .orderBy(sql`EXTRACT(DOW FROM ${messages.timestamp})`);
-
-        // Get messages by hour of day
-        const messagesByHour = await db
-            .select({
-                hour: sql<number>`EXTRACT(HOUR FROM ${messages.timestamp})`,
-                count: count(),
-            })
-            .from(messages)
-            .where(eq(messages.userId, user.id))
-            .groupBy(sql`EXTRACT(HOUR FROM ${messages.timestamp})`)
-            .orderBy(sql`EXTRACT(HOUR FROM ${messages.timestamp})`);
-
-        // Get date range of messages
-        const dateRange = await db
-            .select({
-                firstMessage: sql<Date>`MIN(${messages.timestamp})`,
-                lastMessage: sql<Date>`MAX(${messages.timestamp})`,
-            })
-            .from(messages)
-            .where(eq(messages.userId, user.id));
-
-        // Get connection count
-        const connectionCount = await db
-            .select({ count: count() })
-            .from(connections)
-            .where(eq(connections.userId, user.id));
-
-        // Get average message length
-        const avgMessageLength = await db
-            .select({
-                avgLength: sql<number>`AVG(LENGTH(${messages.messageText}))`,
-            })
-            .from(messages)
-            .where(eq(messages.userId, user.id));
-
-        // Get longest message
-        const longestMessage = await db
-            .select({
-                messageText: messages.messageText,
-                length: sql<number>`LENGTH(${messages.messageText})`,
-                timestamp: messages.timestamp,
-            })
-            .from(messages)
-            .where(eq(messages.userId, user.id))
-            .orderBy(desc(sql`LENGTH(${messages.messageText})`))
+        // Check cache first
+        const [cached] = await db
+            .select()
+            .from(wrappedCache)
+            .where(eq(wrappedCache.userId, user.id))
             .limit(1);
 
-        // Get most active day
-        const mostActiveDay = await db
-            .select({
-                date: sql<Date>`DATE(${messages.timestamp})`,
-                count: count(),
-            })
-            .from(messages)
-            .where(eq(messages.userId, user.id))
-            .groupBy(sql`DATE(${messages.timestamp})`)
-            .orderBy(desc(count()))
-            .limit(1);
+        const now = new Date();
+        const cacheValid = cached && cached.lastUpdated &&
+            (now.getTime() - new Date(cached.lastUpdated).getTime()) < CACHE_TTL_MS;
 
-        // Get Twitter wrapped data if user has Twitter username
-        let twitterWrapped = null;
-        const twitterUsername = extractUsername(user.twitter);
-
-        console.log(`🔍 Twitter wrapped check - user.twitter: ${user.twitter}, extracted username: ${twitterUsername}`);
-
-        if (twitterUsername) {
-            try {
-                console.log(`🔄 Generating Twitter wrapped for @${twitterUsername}`);
-                twitterWrapped = await generateTwitterWrapped(
-                    { firstName: user.firstName, lastName: user.lastName },
-                    twitterUsername
-                );
-                console.log(`✅ Twitter wrapped generated successfully`);
-                console.log(`📝 Twitter wrapped weeklyRecap: ${twitterWrapped?.weeklyRecap ? 'Present' : 'Missing'}`);
-                console.log(`📝 Twitter wrapped error: ${twitterWrapped?.error ? JSON.stringify(twitterWrapped.error) : 'None'}`);
-            } catch (error) {
-                console.error('❌ Unexpected error in generateTwitterWrapped:', error);
-                // Even if there's an unexpected error, set twitterWrapped to null
-                // so the response doesn't fail
-                twitterWrapped = null;
-            }
-        } else {
-            console.log(`⚠️ No Twitter username found for user ${user.firstName} ${user.lastName} (phone: ${user.id})`);
+        if (cacheValid && cached.data) {
+            console.log(`✅ Returning cached wrapped data for user ${user.id}`);
+            return res.json(cached.data as any);
         }
 
-        res.json({
-            user: {
-                id: user.id,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                phoneNumber: user.number,
-            },
-            statistics: {
-                totalMessages,
-                messagesSent,
-                messagesReceived,
-                connectionCount: connectionCount[0]?.count || 0,
-                averageMessageLength: avgMessageLength[0]?.avgLength
-                    ? Math.round(Number(avgMessageLength[0].avgLength))
-                    : 0,
-                longestMessage: longestMessage[0]
-                    ? {
-                        text: longestMessage[0].messageText,
-                        length: Number(longestMessage[0].length),
-                        timestamp: longestMessage[0].timestamp,
-                    }
-                    : null,
-                dateRange: dateRange[0]
-                    ? {
-                        firstMessage: dateRange[0].firstMessage,
-                        lastMessage: dateRange[0].lastMessage,
-                    }
-                    : null,
-                mostActiveDay: mostActiveDay[0]
-                    ? {
-                        date: mostActiveDay[0].date,
-                        messageCount: mostActiveDay[0].count,
-                    }
-                    : null,
-            },
-            breakdown: {
-                topContacts: topContacts.map(contact => ({
-                    phoneNumber: contact.phoneNumber,
-                    messageCount: contact.messageCount,
-                    name: contact.name || null,
-                })),
-                messagesByDayOfWeek: messagesByDay.map(day => ({
-                    day: dayNames[Number(day.dayOfWeek)],
-                    dayNumber: Number(day.dayOfWeek),
-                    count: day.count,
-                })),
-                messagesByHour: messagesByHour.map(hour => ({
-                    hour: Number(hour.hour),
-                    count: hour.count,
-                })),
-            },
-            twitterWrapped: twitterWrapped,
-        });
+        // Calculate wrapped data
+        console.log(`🔄 Calculating wrapped data for user ${user.id}`);
+        const wrappedData = await calculateWrappedData(user);
+
+        // Store in cache (upsert)
+        if (cached) {
+            await db
+                .update(wrappedCache)
+                .set({
+                    data: wrappedData as any,
+                    lastUpdated: new Date(),
+                })
+                .where(eq(wrappedCache.userId, user.id));
+        } else {
+            await db
+                .insert(wrappedCache)
+                .values({
+                    userId: user.id,
+                    data: wrappedData as any,
+                    lastUpdated: new Date(),
+                });
+        }
+
+        res.json(wrappedData);
     } catch (error) {
         console.error('Error fetching wrapped statistics:', error);
         res.status(500).json({
             error: 'Failed to fetch wrapped statistics',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+
+/**
+ * GET /api/wrapped/:phoneNumber/connections
+ * Get wrapped data for all connections of a user
+ */
+router.get('/:phoneNumber/connections', async (req, res) => {
+    try {
+        const { phoneNumber } = req.params;
+
+        if (!phoneNumber) {
+            return res.status(400).json({ error: 'Phone number is required' });
+        }
+
+        // Find user by phone number
+        const [user] = await db
+            .select()
+            .from(users)
+            .where(eq(users.number, phoneNumber))
+            .limit(1);
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Get all connections
+        const userConnections = await db
+            .select({
+                connectedUser: users,
+            })
+            .from(connections)
+            .innerJoin(users, eq(connections.connectedUserId, users.id))
+            .where(eq(connections.userId, user.id));
+
+        // Get wrapped data for each connection (with caching)
+        const connectionsWrapped = await Promise.all(
+            userConnections.map(async ({ connectedUser }) => {
+                // Check cache
+                const [cached] = await db
+                    .select()
+                    .from(wrappedCache)
+                    .where(eq(wrappedCache.userId, connectedUser.id))
+                    .limit(1);
+
+                const now = new Date();
+                const cacheValid = cached && cached.lastUpdated &&
+                    (now.getTime() - new Date(cached.lastUpdated).getTime()) < CACHE_TTL_MS;
+
+                let wrappedData;
+                if (cacheValid && cached.data) {
+                    wrappedData = cached.data as any;
+                } else {
+                    wrappedData = await calculateWrappedData(connectedUser);
+                    // Store in cache
+                    if (cached) {
+                        await db
+                            .update(wrappedCache)
+                            .set({
+                                data: wrappedData as any,
+                                lastUpdated: new Date(),
+                            })
+                            .where(eq(wrappedCache.userId, connectedUser.id));
+                    } else {
+                        await db
+                            .insert(wrappedCache)
+                            .values({
+                                userId: connectedUser.id,
+                                data: wrappedData as any,
+                                lastUpdated: new Date(),
+                            });
+                    }
+                }
+
+                return {
+                    user: {
+                        id: connectedUser.id,
+                        firstName: connectedUser.firstName,
+                        lastName: connectedUser.lastName,
+                        phoneNumber: connectedUser.number,
+                        twitter: connectedUser.twitter,
+                    },
+                    wrapped: wrappedData,
+                };
+            })
+        );
+
+        res.json({
+            connections: connectionsWrapped,
+        });
+    } catch (error) {
+        console.error('Error fetching connections wrapped data:', error);
+        res.status(500).json({
+            error: 'Failed to fetch connections wrapped data',
             details: error instanceof Error ? error.message : 'Unknown error'
         });
     }

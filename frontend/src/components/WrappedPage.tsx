@@ -69,6 +69,27 @@ export default function WrappedPage() {
     const { phoneNumber } = useParams<{ phoneNumber: string }>();
     const navigate = useNavigate();
     const [wrappedData, setWrappedData] = useState<WrappedData | null>(null);
+    const [connectionsWrapped, setConnectionsWrapped] = useState<{
+        connections: Array<{
+            user: {
+                id: number;
+                firstName: string;
+                lastName: string;
+                phoneNumber: string;
+                twitter?: string;
+            };
+            wrapped: {
+                statistics: {
+                    totalMessages: number;
+                    messagesSent: number;
+                    messagesReceived: number;
+                };
+                twitterWrapped?: {
+                    weeklyRecap: string | null;
+                } | null;
+            };
+        }>;
+    } | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [showLogoAnimation, setShowLogoAnimation] = useState(false);
@@ -122,6 +143,20 @@ export default function WrappedPage() {
             // Log Twitter wrapped data for debugging
             if (data.twitterWrapped?.error) {
                 console.log('Twitter wrapped error:', data.twitterWrapped.error);
+            }
+
+            // Fetch connections wrapped data if user has connections
+            if (data.statistics.connectionCount > 0) {
+                try {
+                    const connectionsResponse = await fetch(`/api/wrapped/${number}/connections`);
+                    if (connectionsResponse.ok) {
+                        const connectionsData = await connectionsResponse.json();
+                        setConnectionsWrapped(connectionsData);
+                    }
+                } catch (err) {
+                    console.error('Error fetching connections wrapped data:', err);
+                    // Don't fail the whole page if connections data fails
+                }
             }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'An error occurred');
@@ -216,6 +251,7 @@ export default function WrappedPage() {
                         mostActiveDay: statistics.mostActiveDay,
                     }}
                     breakdown={wrappedData.breakdown}
+                    connectionsWrapped={connectionsWrapped}
                 />
             </div>
         </div>
