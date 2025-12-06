@@ -316,5 +316,43 @@ router.delete('/:phoneNumber/connections/:connectedPhoneNumber', async (req, res
     }
 });
 
+// DELETE /api/profile/:phoneNumber - Delete user account by phone number
+router.delete('/:phoneNumber', async (req, res) => {
+    try {
+        const { phoneNumber } = req.params;
+
+        // Normalize phone number (remove non-digits)
+        const normalizedPhone = phoneNumber.replace(/\D/g, '');
+
+        // Find user by phone number
+        const [user] = await db
+            .select()
+            .from(users)
+            .where(eq(users.number, normalizedPhone));
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Delete user (cascade will handle connections and messages)
+        const [deletedUser] = await db
+            .delete(users)
+            .where(eq(users.number, normalizedPhone))
+            .returning();
+
+        if (!deletedUser) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        res.json({
+            message: 'Account deleted successfully',
+            user: transformUser(deletedUser),
+        });
+    } catch (error) {
+        console.error('Error deleting account:', error);
+        res.status(500).json({ error: 'Failed to delete account' });
+    }
+});
+
 export default router;
 

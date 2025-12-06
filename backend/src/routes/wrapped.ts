@@ -226,6 +226,8 @@ router.get('/:phoneNumber', async (req, res) => {
         let twitterWrapped = null;
         const twitterUsername = extractUsername(user.twitter);
 
+        console.log(`🔍 Twitter wrapped check - user.twitter: ${user.twitter}, extracted username: ${twitterUsername}`);
+
         if (twitterUsername) {
             try {
                 console.log(`🔄 Generating Twitter wrapped for @${twitterUsername}`);
@@ -234,13 +236,16 @@ router.get('/:phoneNumber', async (req, res) => {
                     twitterUsername
                 );
                 console.log(`✅ Twitter wrapped generated successfully`);
-                console.log(`📝 Twitter wrapped: ${twitterWrapped?.weeklyRecap}`);
+                console.log(`📝 Twitter wrapped weeklyRecap: ${twitterWrapped?.weeklyRecap ? 'Present' : 'Missing'}`);
+                console.log(`📝 Twitter wrapped error: ${twitterWrapped?.error ? JSON.stringify(twitterWrapped.error) : 'None'}`);
             } catch (error) {
                 console.error('❌ Unexpected error in generateTwitterWrapped:', error);
                 // Even if there's an unexpected error, set twitterWrapped to null
                 // so the response doesn't fail
                 twitterWrapped = null;
             }
+        } else {
+            console.log(`⚠️ No Twitter username found for user ${user.firstName} ${user.lastName} (phone: ${user.phoneNumber})`);
         }
 
         res.json({

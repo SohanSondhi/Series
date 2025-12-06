@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import GraphNodes from './UI/GraphNodes';
+import WrappedSlides from './WrappedSlides';
+import WrappedLogoAnimation from './UI/WrappedLogoAnimation';
 import Sidebar from './Sidebar';
 
 interface WrappedData {
@@ -67,7 +70,9 @@ export default function WrappedPage() {
     const [wrappedData, setWrappedData] = useState<WrappedData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [showLogoAnimation, setShowLogoAnimation] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [loadingMessage, setLoadingMessage] = useState<string>('');
 
     useEffect(() => {
         if (phoneNumber) {
@@ -75,9 +80,28 @@ export default function WrappedPage() {
         }
     }, [phoneNumber]);
 
+    // Add class to body when wrapped page is active
+    useEffect(() => {
+        document.body.classList.add('wrapped-active');
+        return () => {
+            document.body.classList.remove('wrapped-active');
+        };
+    }, []);
+
     const fetchWrapped = async (number: string) => {
         try {
             setLoading(true);
+            setLoadingMessage('');
+
+            // Set timeout for loading messages
+            const timeout1 = setTimeout(() => {
+                setLoadingMessage('Wait a second!');
+            }, 2000);
+
+            const timeout2 = setTimeout(() => {
+                setLoadingMessage("We're just fetching your data...");
+            }, 3000);
+
             const response = await fetch(`/api/wrapped/${number}`);
             if (!response.ok) {
                 if (response.status === 404) {
@@ -89,6 +113,11 @@ export default function WrappedPage() {
             setWrappedData(data);
             setError(null);
 
+            // Clear timeouts
+            clearTimeout(timeout1);
+            clearTimeout(timeout2);
+            setLoadingMessage('');
+
             // Log Twitter wrapped data for debugging
             if (data.twitterWrapped?.error) {
                 console.log('Twitter wrapped error:', data.twitterWrapped.error);
@@ -97,14 +126,25 @@ export default function WrappedPage() {
             setError(err instanceof Error ? err.message : 'An error occurred');
         } finally {
             setLoading(false);
+            setLoadingMessage('');
         }
     };
 
     if (loading) {
         return (
-            <div className="user-list__loading">
-                <div className="spinner"></div>
-                <p>Loading your wrapped...</p>
+            <div className="wrapped-loading">
+                <div className="wrapped-loading__graph">
+                    <GraphNodes nodeCount={20} />
+                </div>
+                <div className="wrapped-loading__content">
+                    <div className="wrapped-loading__spinner">
+                        <div className="spinner"></div>
+                    </div>
+                    <p className="wrapped-loading__subtitle">Loading your wrapped...</p>
+                    {loadingMessage && (
+                        <p className="wrapped-loading__message">{loadingMessage}</p>
+                    )}
+                </div>
             </div>
         );
     }
@@ -130,15 +170,24 @@ export default function WrappedPage() {
         );
     }
 
-    const { user, statistics, breakdown, twitterWrapped } = wrappedData;
+    const { user, statistics, twitterWrapped } = wrappedData;
+
+    if (showLogoAnimation) {
+        return (
+            <WrappedLogoAnimation
+                onComplete={() => setShowLogoAnimation(false)}
+            />
+        );
+    }
 
     return (
         <div className="app">
             {!isSidebarOpen && (
                 <button
-                    className="profile-page__menu-btn"
+                    className="wrapped-page__menu-btn"
                     onClick={() => setIsSidebarOpen(true)}
                 >
+                    <span></span>
                     <span></span>
                     <span></span>
                 </button>
@@ -146,132 +195,26 @@ export default function WrappedPage() {
             <Sidebar
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
-                phoneNumber={phoneNumber}
+                phoneNumber={phoneNumber || undefined}
             />
             <div className="wrapped-page">
-                <div className="wrapped-page__header">
-                    <h1>Your Wrapped</h1>
-                    <p className="wrapped-page__subtitle">
-                        {user.firstName} {user.lastName}'s Year in Review
-                    </p>
-                </div>
-
-                <div className="wrapped-page__content">
-                    {/* Messages Statistics Section */}
-                    <section className="wrapped-section">
-                        <h2 className="wrapped-section__title">Messages</h2>
-                        <div className="wrapped-section__stats">
-                            <div className="wrapped-stat-card">
-                                <div className="wrapped-stat-card__value">{statistics.totalMessages}</div>
-                                <div className="wrapped-stat-card__label">Total Messages</div>
-                            </div>
-                            <div className="wrapped-stat-card">
-                                <div className="wrapped-stat-card__value">{statistics.messagesSent}</div>
-                                <div className="wrapped-stat-card__label">Sent</div>
-                            </div>
-                            <div className="wrapped-stat-card">
-                                <div className="wrapped-stat-card__value">{statistics.messagesReceived}</div>
-                                <div className="wrapped-stat-card__label">Received</div>
-                            </div>
-                            <div className="wrapped-stat-card">
-                                <div className="wrapped-stat-card__value">{statistics.averageMessageLength}</div>
-                                <div className="wrapped-stat-card__label">Avg Length</div>
-                            </div>
-                        </div>
-                    </section>
-
-                    {/* Twitter Wrapped Section */}
-                    {twitterWrapped && (
-                        <section className="wrapped-section wrapped-section--twitter">
-                            <h2 className="wrapped-section__title">Twitter Wrapped</h2>
-
-                            {/* Show error as a notice banner if present, but still show recap below */}
-                            {twitterWrapped.error && (
-                                <div style={{
-                                    backgroundColor: '#fff3cd',
-                                    border: '1px solid #ffc107',
-                                    borderRadius: '8px',
-                                    padding: '0.75rem 1rem',
-                                    marginBottom: '1.5rem',
-                                    fontSize: '0.9rem',
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                                        <span>⚠️</span>
-                                        <strong style={{ color: '#856404' }}>Note:</strong>
-                                    </div>
-                                    <p style={{ margin: 0, color: '#856404' }}>
-                                        {twitterWrapped.error.message}
-                                        {twitterWrapped.error.type === 'rate_limit' && twitterWrapped.error.retryAfter && (
-                                            <span style={{ display: 'block', marginTop: '0.25rem', fontSize: '0.85rem' }}>
-                                                You can try again after: {new Date(twitterWrapped.error.retryAfter).toLocaleString()}
-                                            </span>
-                                        )}
-                                    </p>
-                                </div>
-                            )}
-
-                            {/* Always show user profile if available */}
-                            {twitterWrapped.user && (
-                                <div className="twitter-wrapped__profile">
-                                    <div className="twitter-wrapped__profile-header">
-                                        {twitterWrapped.user.profileImageUrl && (
-                                            <img
-                                                src={twitterWrapped.user.profileImageUrl}
-                                                alt={twitterWrapped.user.name}
-                                                className="twitter-wrapped__avatar"
-                                            />
-                                        )}
-                                        <div>
-                                            <h3 className="twitter-wrapped__name">
-                                                {twitterWrapped.user.name}
-                                                {twitterWrapped.user.verified && (
-                                                    <span className="twitter-wrapped__verified">✓</span>
-                                                )}
-                                            </h3>
-                                            <p className="twitter-wrapped__username">@{twitterWrapped.user.username}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Always show recap if available */}
-                            {twitterWrapped.weeklyRecap ? (
-                                <div className="twitter-wrapped__recap">
-                                    <h3 className="twitter-wrapped__recap-title">Your Weekly Recap</h3>
-                                    <div className="twitter-wrapped__recap-content">
-                                        {twitterWrapped.weeklyRecap.split('\n').map((paragraph, index) => (
-                                            paragraph.trim() && (
-                                                <p key={index} className="twitter-wrapped__recap-paragraph">
-                                                    {paragraph.trim()}
-                                                </p>
-                                            )
-                                        ))}
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="twitter-wrapped__no-recap">
-                                    <p>{twitterWrapped.message || 'Unable to generate weekly recap. No recent tweets found.'}</p>
-                                </div>
-                            )}
-                        </section>
-                    )}
-
-                    {/* Top Contacts Section */}
-                    {breakdown.topContacts.length > 0 && (
-                        <section className="wrapped-section">
-                            <h2 className="wrapped-section__title">Top Contacts</h2>
-                            <div className="wrapped-section__contacts">
-                                {breakdown.topContacts.map((contact, index) => (
-                                    <div key={contact.phoneNumber} className="wrapped-contact">
-                                        <span className="wrapped-contact__rank">#{index + 1}</span>
-                                        <span className="wrapped-contact__phone">{contact.phoneNumber}</span>
-                                        <span className="wrapped-contact__count">{contact.messageCount} messages</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
-                    )}
-                </div>
+                <WrappedSlides
+                    statistics={{
+                        totalMessages: statistics.totalMessages,
+                        messagesSent: statistics.messagesSent,
+                        messagesReceived: statistics.messagesReceived,
+                    }}
+                    twitterRecap={twitterWrapped?.weeklyRecap || null}
+                    userName={`${user.firstName} ${user.lastName}`}
+                    phoneNumber={phoneNumber || undefined}
+                    allStatistics={{
+                        connectionCount: statistics.connectionCount,
+                        averageMessageLength: statistics.averageMessageLength,
+                        longestMessage: statistics.longestMessage,
+                        dateRange: statistics.dateRange,
+                        mostActiveDay: statistics.mostActiveDay,
+                    }}
+                />
             </div>
         </div>
     );

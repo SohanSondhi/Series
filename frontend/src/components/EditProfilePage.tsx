@@ -460,6 +460,40 @@ export default function EditProfilePage() {
                         </button>
                     </div>
                 </form>
+
+                <div className="edit-profile__delete-section">
+                    <button
+                        type="button"
+                        className="edit-profile__delete-btn"
+                        onClick={async () => {
+                            if (!phoneNumber) return;
+
+                            const confirmed = window.confirm(
+                                'Are you sure you want to delete your account? This action cannot be undone and will delete all your data, messages, and connections.'
+                            );
+
+                            if (!confirmed) return;
+
+                            try {
+                                const response = await fetch(`/api/profile/${phoneNumber}`, {
+                                    method: 'DELETE',
+                                });
+
+                                if (!response.ok) {
+                                    const errorData = await response.json();
+                                    throw new Error(errorData.error || 'Failed to delete account');
+                                }
+
+                                // Navigate to home page after successful deletion
+                                navigate('/');
+                            } catch (err) {
+                                setError(err instanceof Error ? err.message : 'Failed to delete account');
+                            }
+                        }}
+                    >
+                        Delete Account
+                    </button>
+                </div>
             </div>
         </div>
     );

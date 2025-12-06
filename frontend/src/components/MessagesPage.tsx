@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Sidebar from './Sidebar';
 
 interface Message {
     id: number;
@@ -39,6 +40,7 @@ export default function MessagesPage() {
         hasMore: false,
     });
     const [filterDirection, setFilterDirection] = useState<'all' | 'inbound' | 'outbound'>('all');
+    const [sidebarOpen, setSidebarOpen] = useState(false);
 
     useEffect(() => {
         setPagination(prev => ({ ...prev, offset: 0 }));
@@ -119,171 +121,178 @@ export default function MessagesPage() {
     }
 
     return (
-        <div className="user-list">
-            <div className="user-list__header">
-                <div className="user-list__menu-icon">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </div>
-                <h1>Messages</h1>
-                <div className="user-list__controls">
+        <>
+            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+            <div className="user-list">
+                <div className="user-list__header">
                     <button
-                        className="user-list__create-btn"
-                        onClick={() => navigate('/')}
+                        className="user-list__menu-icon"
+                        onClick={() => setSidebarOpen(true)}
+                        aria-label="Open menu"
                     >
-                        ← Back to Users
+                        <span></span>
+                        <span></span>
+                        <span></span>
                     </button>
-                    <div style={{ marginLeft: '1rem', display: 'flex', gap: '0.5rem' }}>
+                    <h1>Messages</h1>
+                    <div className="user-list__controls">
                         <button
-                            onClick={() => {
-                                setFilterDirection('all');
-                            }}
-                            style={{
-                                padding: '0.5rem 1rem',
-                                backgroundColor: filterDirection === 'all' ? '#007bff' : '#6c757d',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                            }}
+                            className="user-list__create-btn"
+                            onClick={() => navigate('/')}
                         >
-                            All
+                            ← Back to Users
                         </button>
-                        <button
-                            onClick={() => {
-                                setFilterDirection('inbound');
-                            }}
-                            style={{
-                                padding: '0.5rem 1rem',
-                                backgroundColor: filterDirection === 'inbound' ? '#28a745' : '#6c757d',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                            }}
-                        >
-                            Inbound
-                        </button>
-                        <button
-                            onClick={() => {
-                                setFilterDirection('outbound');
-                            }}
-                            style={{
-                                padding: '0.5rem 1rem',
-                                backgroundColor: filterDirection === 'outbound' ? '#ffc107' : '#6c757d',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                            }}
-                        >
-                            Outbound
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div style={{ padding: '1rem', backgroundColor: '#f8f9fa', marginBottom: '1rem', borderRadius: '8px' }}>
-                <p style={{ margin: 0, fontSize: '0.9rem', color: '#666' }}>
-                    Total Messages: <strong>{pagination.total}</strong> |
-                    Showing: <strong>{messages.length}</strong> |
-                    Direction: <strong>{filterDirection === 'all' ? 'All' : filterDirection}</strong>
-                </p>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '0 1rem' }}>
-                {messages.length === 0 ? (
-                    <div className="user-list__empty">
-                        <p>No messages found.</p>
-                    </div>
-                ) : (
-                    messages.map((message) => (
-                        <div
-                            key={message.id}
-                            style={{
-                                backgroundColor: 'white',
-                                border: '1px solid #dee2e6',
-                                borderRadius: '8px',
-                                padding: '1rem',
-                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                            }}
-                        >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.5rem' }}>
-                                <div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                                        <span
-                                            style={{
-                                                padding: '0.25rem 0.5rem',
-                                                borderRadius: '4px',
-                                                fontSize: '0.75rem',
-                                                fontWeight: 'bold',
-                                                backgroundColor: message.direction === 'outbound' ? '#ffc107' : '#28a745',
-                                                color: 'white',
-                                            }}
-                                        >
-                                            {message.direction.toUpperCase()}
-                                        </span>
-                                        {message.user && (
-                                            <span style={{ fontWeight: 'bold' }}>
-                                                {message.user.firstName} {message.user.lastName}
-                                            </span>
-                                        )}
-                                        <span style={{ color: '#666', fontSize: '0.9rem' }}>
-                                            ({formatPhoneNumber(message.user?.number || null)})
-                                        </span>
-                                    </div>
-                                    {message.counterpartyPhone && (
-                                        <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.25rem' }}>
-                                            To/From: {formatPhoneNumber(message.counterpartyPhone)}
-                                        </div>
-                                    )}
-                                </div>
-                                <div style={{ fontSize: '0.85rem', color: '#666', textAlign: 'right' }}>
-                                    {formatTimestamp(message.timestamp)}
-                                </div>
-                            </div>
-                            <div
+                        <div style={{ marginLeft: '1rem', display: 'flex', gap: '0.5rem' }}>
+                            <button
+                                onClick={() => {
+                                    setFilterDirection('all');
+                                }}
                                 style={{
-                                    padding: '0.75rem',
-                                    backgroundColor: '#f8f9fa',
+                                    padding: '0.5rem 1rem',
+                                    backgroundColor: filterDirection === 'all' ? '#007bff' : '#6c757d',
+                                    color: 'white',
+                                    border: 'none',
                                     borderRadius: '4px',
-                                    marginTop: '0.5rem',
-                                    whiteSpace: 'pre-wrap',
-                                    wordBreak: 'break-word',
+                                    cursor: 'pointer',
                                 }}
                             >
-                                {message.messageText}
-                            </div>
-                            <div style={{ fontSize: '0.75rem', color: '#999', marginTop: '0.5rem' }}>
-                                Message ID: {message.id} | User ID: {message.userId} | Created: {formatTimestamp(message.createdAt)}
-                            </div>
+                                All
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setFilterDirection('inbound');
+                                }}
+                                style={{
+                                    padding: '0.5rem 1rem',
+                                    backgroundColor: filterDirection === 'inbound' ? '#28a745' : '#6c757d',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                Inbound
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setFilterDirection('outbound');
+                                }}
+                                style={{
+                                    padding: '0.5rem 1rem',
+                                    backgroundColor: filterDirection === 'outbound' ? '#ffc107' : '#6c757d',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                Outbound
+                            </button>
                         </div>
-                    ))
+                    </div>
+                </div>
+
+                <div style={{ padding: '1rem', backgroundColor: '#f8f9fa', marginBottom: '1rem', borderRadius: '8px' }}>
+                    <p style={{ margin: 0, fontSize: '0.9rem', color: '#666' }}>
+                        Total Messages: <strong>{pagination.total}</strong> |
+                        Showing: <strong>{messages.length}</strong> |
+                        Direction: <strong>{filterDirection === 'all' ? 'All' : filterDirection}</strong>
+                    </p>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '0 1rem' }}>
+                    {messages.length === 0 ? (
+                        <div className="user-list__empty">
+                            <p>No messages found.</p>
+                        </div>
+                    ) : (
+                        messages.map((message) => (
+                            <div
+                                key={message.id}
+                                style={{
+                                    backgroundColor: 'white',
+                                    border: '1px solid #dee2e6',
+                                    borderRadius: '8px',
+                                    padding: '1rem',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                }}
+                            >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.5rem' }}>
+                                    <div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                                            <span
+                                                style={{
+                                                    padding: '0.25rem 0.5rem',
+                                                    borderRadius: '4px',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: 'bold',
+                                                    backgroundColor: message.direction === 'outbound' ? '#ffc107' : '#28a745',
+                                                    color: 'white',
+                                                }}
+                                            >
+                                                {message.direction.toUpperCase()}
+                                            </span>
+                                            {message.user && (
+                                                <span style={{ fontWeight: 'bold' }}>
+                                                    {message.user.firstName} {message.user.lastName}
+                                                </span>
+                                            )}
+                                            <span style={{ color: '#666', fontSize: '0.9rem' }}>
+                                                ({formatPhoneNumber(message.user?.number || null)})
+                                            </span>
+                                        </div>
+                                        {message.counterpartyPhone && (
+                                            <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.25rem' }}>
+                                                To/From: {formatPhoneNumber(message.counterpartyPhone)}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div style={{ fontSize: '0.85rem', color: '#666', textAlign: 'right' }}>
+                                        {formatTimestamp(message.timestamp)}
+                                    </div>
+                                </div>
+                                <div
+                                    style={{
+                                        padding: '0.75rem',
+                                        backgroundColor: '#f8f9fa',
+                                        borderRadius: '4px',
+                                        marginTop: '0.5rem',
+                                        whiteSpace: 'pre-wrap',
+                                        wordBreak: 'break-word',
+                                    }}
+                                >
+                                    {message.messageText}
+                                </div>
+                                <div style={{ fontSize: '0.75rem', color: '#999', marginTop: '0.5rem' }}>
+                                    Message ID: {message.id} | User ID: {message.userId} | Created: {formatTimestamp(message.createdAt)}
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+
+                {pagination.hasMore && (
+                    <div style={{ padding: '1rem', textAlign: 'center' }}>
+                        <button
+                            onClick={() => {
+                                const newOffset = pagination.offset + pagination.limit;
+                                setPagination(prev => ({ ...prev, offset: newOffset }));
+                            }}
+                            style={{
+                                padding: '0.75rem 1.5rem',
+                                backgroundColor: '#007bff',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '1rem',
+                            }}
+                        >
+                            Load More
+                        </button>
+                    </div>
                 )}
             </div>
-
-            {pagination.hasMore && (
-                <div style={{ padding: '1rem', textAlign: 'center' }}>
-                    <button
-                        onClick={() => {
-                            const newOffset = pagination.offset + pagination.limit;
-                            setPagination(prev => ({ ...prev, offset: newOffset }));
-                        }}
-                        style={{
-                            padding: '0.75rem 1.5rem',
-                            backgroundColor: '#007bff',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontSize: '1rem',
-                        }}
-                    >
-                        Load More
-                    </button>
-                </div>
-            )}
-        </div>
+        </>
     );
 }

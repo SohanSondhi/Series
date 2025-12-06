@@ -10,6 +10,7 @@ interface ProfileCardProps {
 export default function ProfileCard({ user, onClose }: ProfileCardProps) {
     const fullName = `${user.first_name} ${user.last_name}`;
     const [isTweetsModalOpen, setIsTweetsModalOpen] = useState(false);
+    const [isBioSelected, setIsBioSelected] = useState(false);
 
     return (
         <div className="profile-card">
@@ -38,7 +39,11 @@ export default function ProfileCard({ user, onClose }: ProfileCardProps) {
             </div>
 
             <div className="profile-card__content">
-                <div className="profile-card__section">
+                <div
+                    className={`profile-card__section ${isBioSelected ? 'profile-card__section--selected' : ''}`}
+                    onClick={() => setIsBioSelected(!isBioSelected)}
+                    style={{ cursor: 'pointer' }}
+                >
                     <h3 className="profile-card__section-title">BIO</h3>
                     <p className="profile-card__bio">
                         {user.bio || 'No bio available'}
