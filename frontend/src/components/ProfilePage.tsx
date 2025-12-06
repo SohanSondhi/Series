@@ -90,7 +90,6 @@ export default function ProfilePage() {
                 <ProfileCard user={user} onClose={() => navigate('/')} />
                 {user.connections && user.connections.length > 0 && (
                     <div className="profile-page__graph-container">
-                        <h3 className="profile-page__graph-title">Connections Network</h3>
                         <SocialNetworkGraph user={user} connections={user.connections} />
                     </div>
                 )}

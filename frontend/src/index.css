@@ -760,6 +760,257 @@ body::before {
   border-top-color: #000000;
 }
 
+/* Connection Drawer Modal */
+.connection-drawer-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.connection-drawer-modal__overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+.connection-drawer-modal__content {
+  position: relative;
+  background: white;
+  border-radius: 20px;
+  width: 90vw;
+  max-width: 1200px;
+  height: 80vh;
+  max-height: 900px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  z-index: 1001;
+  overflow: hidden;
+}
+
+.connection-drawer-modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.connection-drawer-modal__header h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #000000;
+  margin: 0;
+}
+
+.connection-drawer-modal__close {
+  background: none;
+  border: none;
+  font-size: 2rem;
+  color: #666;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.connection-drawer-modal__close:hover {
+  background: #f5f5f5;
+  color: #000;
+}
+
+.connection-drawer-modal__error {
+  background: #fee;
+  color: #c33;
+  padding: 1rem 1.5rem;
+  margin: 0 2rem;
+  margin-top: 1rem;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid #fcc;
+}
+
+.connection-drawer-modal__error button {
+  background: none;
+  border: none;
+  color: #c33;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.connection-drawer-modal__instructions {
+  padding: 1rem 2rem;
+  background: #f9f9f9;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.connection-drawer-modal__instructions p {
+  margin: 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.connection-drawer-modal__loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.connection-drawer-modal__canvas {
+  flex: 1;
+  position: relative;
+  overflow: visible;
+  background: transparent;
+  min-height: 400px;
+}
+
+.connection-drawer-modal__node {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  z-index: 10;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  overflow: visible;
+}
+
+.connection-drawer-modal__node:hover {
+  transform: translate(-50%, -50%) scale(1.15);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  z-index: 20;
+}
+
+.connection-drawer-modal__node--selected {
+  border-color: #4caf50;
+  box-shadow: 0 0 0 4px rgba(76, 175, 80, 0.3), 0 6px 20px rgba(0, 0, 0, 0.3);
+  z-index: 20;
+}
+
+.connection-drawer-modal__node-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+.connection-drawer-modal__node-placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.connection-drawer-modal__node-initials {
+  color: white;
+  font-weight: 600;
+  font-size: 1.25rem;
+}
+
+.connection-drawer-modal__node-label {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 8px;
+  padding: 0.25rem 0.5rem;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.connection-drawer-modal__node:hover .connection-drawer-modal__node-label,
+.connection-drawer-modal__node--selected .connection-drawer-modal__node-label {
+  opacity: 1;
+}
+
+.connection-drawer-modal__delete-warning {
+  color: #c33;
+  font-weight: 500;
+  margin: 0;
+}
+
+.connection-drawer-modal__delete-warning strong {
+  color: #000;
+  font-weight: 700;
+}
+
+.connection-drawer-modal__confirm-buttons {
+  display: flex;
+  gap: 1rem;
+  padding: 0 2rem;
+  margin-top: 0.5rem;
+  justify-content: center;
+}
+
+.connection-drawer-modal__confirm-btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.connection-drawer-modal__confirm-btn--delete {
+  background: #dc3545;
+  color: white;
+}
+
+.connection-drawer-modal__confirm-btn--delete:hover {
+  background: #c82333;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+}
+
+.connection-drawer-modal__confirm-btn--cancel {
+  background: #6c757d;
+  color: white;
+}
+
+.connection-drawer-modal__confirm-btn--cancel:hover {
+  background: #5a6268;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(108, 117, 125, 0.3);
+}
+
 /* Profile Page Styles */
 .profile-page {
   max-width: 1400px;

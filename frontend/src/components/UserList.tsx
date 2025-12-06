@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { User } from '../types/user';
 import Sidebar from './Sidebar';
 import { getUserDisplayName } from '../utils/userDisplay';
+import ConnectionDrawerModal from './ConnectionDrawerModal';
 
 export default function UserList() {
     const navigate = useNavigate();
@@ -11,6 +12,7 @@ export default function UserList() {
     const [error, setError] = useState<string | null>(null);
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [connectionModalOpen, setConnectionModalOpen] = useState(false);
 
     useEffect(() => {
         fetchUsers();
@@ -67,6 +69,12 @@ export default function UserList() {
                     <div className="user-list__controls">
                         <button
                             className="user-list__create-btn"
+                            onClick={() => setConnectionModalOpen(true)}
+                        >
+                            Draw Connections
+                        </button>
+                        <button
+                            className="user-list__create-btn"
                             onClick={() => navigate('/messages')}
                         >
                             View Messages
@@ -116,6 +124,10 @@ export default function UserList() {
                     )}
                 </div>
             </div>
+            <ConnectionDrawerModal
+                isOpen={connectionModalOpen}
+                onClose={() => setConnectionModalOpen(false)}
+            />
         </>
     );
 }
