@@ -6,20 +6,30 @@ import { eq, and } from 'drizzle-orm';
 
 dotenv.config();
 
+// Validate required Kafka environment variables
+const requiredKafkaVars = ['KAFKA_SASL_USERNAME', 'KAFKA_SASL_PASSWORD', 'KAFKA_BROKERS', 'KAFKA_TOPIC'];
+const missingVars = requiredKafkaVars.filter(varName => !process.env[varName]);
+
+if (missingVars.length > 0) {
+    console.error('❌ Missing required Kafka environment variables:', missingVars.join(', '));
+    console.error('Please set these in your .env file or docker-compose.yml');
+    process.exit(1);
+}
+
 // Kafka Configuration
 const kafka = new Kafka({
-    clientId: process.env.KAFKA_CLIENT_ID || 'team-client-4c2a8dc22c5149cc8c1d8009fa0f852a',
-    brokers: (process.env.KAFKA_BROKERS || 'pkc-619z3.us-east1.gcp.confluent.cloud:9092').split(','),
+    clientId: process.env.KAFKA_CLIENT_ID!,
+    brokers: process.env.KAFKA_BROKERS!.split(','),
     ssl: process.env.KAFKA_TLS_ENABLED !== 'false',
     sasl: {
-        mechanism: (process.env.KAFKA_SASL_MECHANISM as 'plain' | 'scram-sha-256' | 'scram-sha-512') || 'plain',
-        username: process.env.KAFKA_SASL_USERNAME || '6155a543-8732-4270-8b6d-c5bdbd28211d',
-        password: process.env.KAFKA_SASL_PASSWORD || 'cfltTIivf3OHq6tr9fpASLxV4pp7vzPfvnz3cwT8+NAoOAJUCZwRuxuk1sSZTK+w',
+        mechanism: 'plain',
+        username: process.env.KAFKA_SASL_USERNAME!,
+        password: process.env.KAFKA_SASL_PASSWORD!,
     },
 });
 
 const consumer = kafka.consumer({
-    groupId: process.env.KAFKA_CONSUMER_GROUP || 'team-cg-4c2a8dc22c5149cc8c1d8009fa0f852a',
+    groupId: process.env.KAFKA_CONSUMER_GROUP!,
 });
 
 // Kafka event structure based on Series iMessage Service API
@@ -275,10 +285,21 @@ async function processEvent(event: KafkaEvent): Promise<void> {
  */
 export async function startKafkaIngestor(): Promise<void> {
     try {
+        // Log configuration (without sensitive data)
+        console.log('🔧 Kafka Configuration:');
+        console.log(`   Client ID: ${process.env.KAFKA_CLIENT_ID || 'default'}`);
+        console.log(`   Brokers: ${process.env.KAFKA_BROKERS}`);
+        console.log(`   Consumer Group: ${process.env.KAFKA_CONSUMER_GROUP || 'default'}`);
+        console.log(`   Topic: ${process.env.KAFKA_TOPIC}`);
+        console.log(`   SASL Username: ${process.env.KAFKA_SASL_USERNAME ? '***' + process.env.KAFKA_SASL_USERNAME.slice(-4) : 'NOT SET'}`);
+        console.log(`   SASL Password: ${process.env.KAFKA_SASL_PASSWORD ? '***SET***' : 'NOT SET'}`);
+        console.log(`   TLS Enabled: ${process.env.KAFKA_TLS_ENABLED !== 'false'}`);
+        console.log('');
+
         await consumer.connect();
         console.log('✅ Connected to Kafka');
 
-        const topic = process.env.KAFKA_TOPIC || 'team.team.4c2a8dc22c5149cc8c1d8009fa0f852a';
+        const topic = process.env.KAFKA_TOPIC!;
         await consumer.subscribe({
             topic,
             fromBeginning: process.env.KAFKA_FROM_BEGINNING === 'true',

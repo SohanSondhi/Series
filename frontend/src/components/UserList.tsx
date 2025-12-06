@@ -57,6 +57,13 @@ export default function UserList() {
                 <div className="user-list__controls">
                     <button
                         className="user-list__create-btn"
+                        onClick={() => navigate('/messages')}
+                        style={{ marginRight: '0.5rem' }}
+                    >
+                        📨 View Messages
+                    </button>
+                    <button
+                        className="user-list__create-btn"
                         onClick={() => navigate('/create')}
                     >
                         + Create Profile

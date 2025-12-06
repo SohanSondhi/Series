@@ -113,6 +113,7 @@ KAFKA_SASL_MECHANISM=plain
 KAFKA_TLS_ENABLED=true
 KAFKA_FROM_BEGINNING=false
 ```
+
 in root directly
 
 2. Start all services (including the Kafka ingestor):
