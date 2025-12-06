@@ -22,6 +22,7 @@ router.get('/', async (req, res) => {
             linkedin: user.linkedin,
             profile_picture: user.profilePicture,
             bio: user.bio,
+            weekly_recap: user.weeklyRecap,
             created_at: user.createdAt?.toISOString(),
             updated_at: user.updatedAt?.toISOString(),
         }));
@@ -61,6 +62,7 @@ router.get('/:id', async (req, res) => {
             linkedin: user.linkedin,
             profile_picture: user.profilePicture,
             bio: user.bio,
+            weekly_recap: user.weeklyRecap,
             created_at: user.createdAt?.toISOString(),
             updated_at: user.updatedAt?.toISOString(),
         });
@@ -83,6 +85,7 @@ router.post('/', async (req, res) => {
             linkedin,
             profile_picture,
             bio,
+            weekly_recap,
         } = req.body;
 
         // Validate required fields
@@ -102,6 +105,7 @@ router.post('/', async (req, res) => {
             linkedin: linkedin || null,
             profilePicture: profile_picture || null,
             bio: bio || '',
+            weeklyRecap: weekly_recap || null,
         }).returning();
 
         // Transform to match frontend expectations
@@ -116,6 +120,7 @@ router.post('/', async (req, res) => {
             linkedin: newUser.linkedin,
             profile_picture: newUser.profilePicture,
             bio: newUser.bio,
+            weekly_recap: newUser.weeklyRecap,
             created_at: newUser.createdAt?.toISOString(),
             updated_at: newUser.updatedAt?.toISOString(),
         });
@@ -149,6 +154,7 @@ router.put('/:id', async (req, res) => {
             linkedin,
             profile_picture,
             bio,
+            weekly_recap,
         } = req.body;
 
         // Validate required fields
@@ -170,6 +176,7 @@ router.put('/:id', async (req, res) => {
                 linkedin: linkedin || null,
                 profilePicture: profile_picture || null,
                 bio: bio || '',
+                weeklyRecap: weekly_recap || null,
             })
             .where(eq(users.id, userId))
             .returning();
@@ -190,6 +197,7 @@ router.put('/:id', async (req, res) => {
             linkedin: updatedUser.linkedin,
             profile_picture: updatedUser.profilePicture,
             bio: updatedUser.bio,
+            weekly_recap: updatedUser.weeklyRecap,
             created_at: updatedUser.createdAt?.toISOString(),
             updated_at: updatedUser.updatedAt?.toISOString(),
         });
@@ -235,6 +243,7 @@ router.delete('/:id', async (req, res) => {
                 linkedin: deletedUser.linkedin,
                 profile_picture: deletedUser.profilePicture,
                 bio: deletedUser.bio,
+                weekly_recap: deletedUser.weeklyRecap,
                 created_at: deletedUser.createdAt?.toISOString(),
                 updated_at: deletedUser.updatedAt?.toISOString(),
             },

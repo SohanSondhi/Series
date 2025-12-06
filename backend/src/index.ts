@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { pool } from './db/index.js';
 import { initializeDatabase } from './db/init.js';
-import usersRouter from './routes/users.js';
+import profileRouter from './routes/profile.js';
 import { sql } from 'drizzle-orm';
 
 dotenv.config();
@@ -37,7 +37,7 @@ app.get('/api/health', async (req, res) => {
 });
 
 // API Routes
-app.use('/api/users', usersRouter);
+app.use('/api/profile', profileRouter);
 
 // Start server
 app.listen(PORT, () => {
