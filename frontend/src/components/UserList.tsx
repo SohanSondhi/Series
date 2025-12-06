@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User } from '../types/user';
-import ProfileCard from './ProfileCard';
 
 export default function UserList() {
+    const navigate = useNavigate();
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
     useEffect(() => {
         fetchUsers();
@@ -48,45 +48,50 @@ export default function UserList() {
     return (
         <div className="user-list">
             <div className="user-list__header">
+                <div className="user-list__menu-icon">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
                 <h1>Profile Preview</h1>
                 <div className="user-list__controls">
+                    <button
+                        className="user-list__create-btn"
+                        onClick={() => navigate('/create')}
+                    >
+                        + Create Profile
+                    </button>
                     <span className="user-list__hint">SCROLL TO ZOOM</span>
                 </div>
             </div>
 
-            {selectedUser ? (
-                <div className="user-list__selected">
-                    <ProfileCard user={selectedUser} onClose={() => setSelectedUser(null)} />
-                </div>
-            ) : (
-                <div className="user-list__grid">
-                    {users.length === 0 ? (
-                        <div className="user-list__empty">
-                            <p>No users found. Create your first user!</p>
-                        </div>
-                    ) : (
-                        users.map((user) => (
-                            <div
-                                key={user.id}
-                                className="user-list__item"
-                                onClick={() => setSelectedUser(user)}
-                            >
-                                <div className="user-list__item-avatar">
-                                    {user.profile_picture ? (
-                                        <img src={user.profile_picture} alt={`${user.first_name} ${user.last_name}`} />
-                                    ) : (
-                                        <span>{`${user.first_name[0]}${user.last_name[0]}`.toUpperCase()}</span>
-                                    )}
-                                </div>
-                                <div className="user-list__item-info">
-                                    <h3>{`${user.first_name} ${user.last_name}`}</h3>
-                                    {user.location && <p className="user-list__item-location">📍 {user.location}</p>}
-                                </div>
+            <div className="user-list__grid">
+                {users.length === 0 ? (
+                    <div className="user-list__empty">
+                        <p>No users found. Create your first user!</p>
+                    </div>
+                ) : (
+                    users.map((user) => (
+                        <div
+                            key={user.id}
+                            className="user-list__item"
+                            onClick={() => navigate(`/profile/${user.number}`)}
+                        >
+                            <div className="user-list__item-avatar">
+                                {user.profile_picture ? (
+                                    <img src={user.profile_picture} alt={`${user.first_name} ${user.last_name}`} />
+                                ) : (
+                                    <span>{`${user.first_name[0]}${user.last_name[0]}`.toUpperCase()}</span>
+                                )}
                             </div>
-                        ))
-                    )}
-                </div>
-            )}
+                            <div className="user-list__item-info">
+                                <h3>{`${user.first_name} ${user.last_name}`}</h3>
+                                {user.location && <p className="user-list__item-location">📍 {user.location}</p>}
+                            </div>
+                        </div>
+                    ))
+                )}
+            </div>
         </div>
     );
 }

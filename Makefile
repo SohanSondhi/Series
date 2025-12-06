@@ -11,6 +11,7 @@ build: ## Build all Docker containers
 
 up: ## Start all services
 	docker-compose up -d
+	docker-compose logs -f
 
 down: ## Stop all services
 	docker-compose down
