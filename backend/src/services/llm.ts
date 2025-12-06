@@ -37,7 +37,7 @@ export async function generateWeeklyRecap(options: GenerateRecapOptions): Promis
     if (llmProvider === 'llama' || llmProvider === 'ollama' || !process.env.LLM_PROVIDER) {
         return generateRecapWithLlama({
             textContent,
-            context,
+            context: context || '',
             maxWords,
             baseUrl,
             model,
@@ -61,15 +61,14 @@ async function generateRecapWithLlama(options: {
 
     const prompt = `### Task
 Analyze the user's posts and produce a weekly recap that highlights:
-- Their most important events, thoughts, or updates
-- Key themes or recurring topics
+- Their most important events or updates
 - Notable insights or moments
 
 ### Output Format (strict)
 Provide **exactly three** bullet points.  
 Each bullet point should:
 - Begin with "•"
-- Contain a short, engaging summary
+- Contain a short, direct summary
 - Include *italicized* emphasis on one key phrase
 - Be written in a friendly, conversational tone
 
@@ -82,6 +81,7 @@ Each bullet point should:
 - You should in no circustances write this in second or first person. Should be in third person.
 - Do not fabricate details not supported by the posts.
 - Keep the entire output under ${maxWords} words.
+- Avoid using flowery language. Keep it simple and direct.
 
 ${context ? `### User Context: ${context}` : ''}
 

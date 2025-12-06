@@ -3473,7 +3473,10 @@ body::before {
   align-items: center;
   justify-content: center;
   height: 100%;
-  overflow: hidden;
+  overflow: visible;
+  padding: 8rem 4rem;
+  min-height: 800px;
+  min-width: 100vw;
 }
 
 .wrapped-slide__connections-intro-text {
@@ -3483,56 +3486,82 @@ body::before {
   letter-spacing: -2px;
   line-height: 1.2;
   text-align: center;
-  padding: 0 2rem;
-  animation: slideAndBounce 3.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
-  transform: translateX(-150%);
+  padding: 0 4rem;
+  max-width: 95%;
+  animation: slideAndBounce 4.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  transform: translateX(-200%);
+  will-change: transform, opacity;
 }
 
 @keyframes slideAndBounce {
   0% {
-    transform: translateX(-150%) translateY(0);
+    transform: translateX(-200%) translateY(0) scale(0.85);
     opacity: 0;
   }
-  25% {
-    /* Slower slide in from left */
-    transform: translateX(8%) translateY(0);
+  10% {
+    /* Fast slide in from left - enters screen with momentum, slight upward arc */
+    transform: translateX(3%) translateY(-20px) scale(1.05);
     opacity: 1;
   }
-  35% {
-    /* First big bounce - overshoot to the right and bounce up high */
-    transform: translateX(-4%) translateY(-60px);
+  16% {
+    /* First big bounce - high bounce in V shape (diagonal) */
+    transform: translateX(0%) translateY(-100px) scale(0.96);
   }
-  45% {
-    /* Bounce down hard */
-    transform: translateX(2%) translateY(40px);
+  24% {
+    /* Hit ground - compress on impact, slight forward movement */
+    transform: translateX(-1%) translateY(50px) scale(1.08);
   }
-  55% {
-    /* Second bounce up */
-    transform: translateX(-1%) translateY(-35px);
+  30% {
+    /* Second bounce - less energy, V shape continues */
+    transform: translateX(0.5%) translateY(-60px) scale(1);
   }
-  65% {
-    /* Bounce down again */
-    transform: translateX(0.5%) translateY(25px);
+  38% {
+    /* Hit ground */
+    transform: translateX(-0.3%) translateY(30px) scale(1.04);
   }
-  75% {
-    /* Third bounce up */
-    transform: translateX(-0.3%) translateY(-20px);
+  44% {
+    /* Third bounce - even less energy, smoother arc */
+    transform: translateX(0.2%) translateY(-35px) scale(1);
   }
-  85% {
-    /* Bounce down */
-    transform: translateX(0.2%) translateY(12px);
+  50% {
+    /* Hit ground */
+    transform: translateX(-0.1%) translateY(18px) scale(1.02);
+  }
+  56% {
+    /* Fourth bounce - small, circular movement */
+    transform: translateX(0.1%) translateY(-22px) scale(1);
+  }
+  62% {
+    /* Hit ground */
+    transform: translateX(-0.05%) translateY(11px) scale(1.01);
+  }
+  68% {
+    /* Fifth bounce - tiny, very smooth */
+    transform: translateX(0.05%) translateY(-13px) scale(1);
+  }
+  74% {
+    /* Hit ground */
+    transform: translateX(-0.03%) translateY(6px) scale(1);
+  }
+  80% {
+    /* Sixth bounce - very small, circular */
+    transform: translateX(0.03%) translateY(-7px) scale(1);
+  }
+  86% {
+    /* Hit ground */
+    transform: translateX(-0.02%) translateY(3px) scale(1);
   }
   92% {
-    /* Fourth smaller bounce up */
-    transform: translateX(-0.1%) translateY(-8px);
+    /* Final tiny bounce - almost circular */
+    transform: translateX(0.02%) translateY(-4px) scale(1);
   }
   96% {
-    /* Bounce down */
-    transform: translateX(0.05%) translateY(4px);
+    /* Almost settled */
+    transform: translateX(-0.01%) translateY(1px) scale(1);
   }
   100% {
-    /* Settle in center */
-    transform: translateX(0%) translateY(0);
+    /* Fully settled in center */
+    transform: translateX(0%) translateY(0) scale(1);
     opacity: 1;
   }
 }
@@ -3796,5 +3825,345 @@ body::before {
   100% {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+/* Floating Particles */
+.floating-particles {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.floating-particles__particle {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.3) 0%, transparent 70%);
+  transition: left 0.1s linear, top 0.1s linear;
+}
+
+/* Ripple Effect */
+.ripple-effect {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 200px;
+  height: 200px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.ripple-effect__ripple {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  animation: rippleExpand 3s ease-out infinite;
+}
+
+.ripple-effect__ripple--1 {
+  width: 100px;
+  height: 100px;
+  animation-delay: 0s;
+}
+
+.ripple-effect__ripple--2 {
+  width: 100px;
+  height: 100px;
+  animation-delay: 1s;
+}
+
+.ripple-effect__ripple--3 {
+  width: 100px;
+  height: 100px;
+  animation-delay: 2s;
+}
+
+@keyframes rippleExpand {
+  0% {
+    width: 100px;
+    height: 100px;
+    opacity: 0.8;
+  }
+  100% {
+    width: 400px;
+    height: 400px;
+    opacity: 0;
+  }
+}
+
+/* Gradient Orbs */
+.gradient-orbs {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.gradient-orbs__orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40px);
+  animation: orbFloat 20s ease-in-out infinite;
+}
+
+.gradient-orbs__orb:nth-child(1) {
+  animation-delay: 0s;
+  animation-duration: 18s;
+}
+
+.gradient-orbs__orb:nth-child(2) {
+  animation-delay: 2s;
+  animation-duration: 22s;
+}
+
+.gradient-orbs__orb:nth-child(3) {
+  animation-delay: 4s;
+  animation-duration: 20s;
+}
+
+.gradient-orbs__orb:nth-child(4) {
+  animation-delay: 1s;
+  animation-duration: 24s;
+}
+
+.gradient-orbs__orb:nth-child(5) {
+  animation-delay: 3s;
+  animation-duration: 19s;
+}
+
+@keyframes orbFloat {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) translate(0, 0);
+  }
+  25% {
+    transform: translate(-50%, -50%) translate(30px, -30px);
+  }
+  50% {
+    transform: translate(-50%, -50%) translate(-20px, 20px);
+  }
+  75% {
+    transform: translate(-50%, -50%) translate(20px, 30px);
+  }
+}
+
+/* New Connections Slide */
+.wrapped-slide--new-connections {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  height: 100%;
+  position: relative;
+}
+
+.wrapped-slide__title--new-connections {
+  position: relative;
+  z-index: 10;
+  transition: transform 0.6s ease-out, margin-bottom 0.6s ease-out;
+  margin-bottom: 2rem;
+}
+
+.wrapped-slide__title--new-connections.wrapped-slide__title--graph-visible {
+  transform: translateY(-30px);
+  margin-bottom: 1rem;
+}
+
+.wrapped-slide__new-connections-count {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 3rem;
+  z-index: 10;
+  transition: opacity 0.5s ease-out;
+}
+
+.wrapped-slide__new-connections-count--fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.wrapped-slide__new-connections-number {
+  font-size: 5rem;
+  font-weight: 700;
+  color: #000000;
+  line-height: 1;
+  animation: numberGrow 1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  transform: scale(0);
+}
+
+@keyframes numberGrow {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.wrapped-slide__new-connections-label {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #666666;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  animation: labelFadeIn 0.5s ease-out 0.5s forwards;
+  opacity: 0;
+}
+
+@keyframes labelFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.wrapped-slide__new-connections-graph-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* New Connections Graph */
+.new-connections-graph {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  background: transparent;
+}
+
+.new-connections-graph__connections {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.new-connections-graph__nodes {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+}
+
+.new-connections-graph__node {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  z-index: 10;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  overflow: visible;
+  background: white;
+}
+
+.new-connections-graph__node--center {
+  width: 80px;
+  height: 80px;
+  border: 4px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  z-index: 20;
+}
+
+.new-connections-graph__node--highlight-blue {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3),
+    0 6px 20px rgba(59, 130, 246, 0.4) !important;
+  transform: translate(-50%, -50%) scale(1.15) !important;
+  z-index: 30 !important;
+}
+
+.new-connections-graph__node--highlight-green {
+  border-color: #22c55e !important;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.3),
+    0 6px 20px rgba(34, 197, 94, 0.4) !important;
+  transform: translate(-50%, -50%) scale(1.15) !important;
+  z-index: 30 !important;
+}
+
+.new-connections-graph__node-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+.new-connections-graph__node-placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.new-connections-graph__node-initials {
+  color: white;
+  font-weight: 600;
+  font-size: 1.25rem;
+}
+
+.new-connections-graph__new-badge {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  background: #22c55e;
+  color: white;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 0.15rem 0.35rem;
+  border-radius: 6px;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.4);
+  z-index: 50;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  animation: badgePulse 2s ease-in-out infinite;
+  pointer-events: none;
+  line-height: 1;
+}
+
+@keyframes badgePulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
   }
 }

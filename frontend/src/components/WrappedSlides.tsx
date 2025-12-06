@@ -4,7 +4,11 @@ import AnimatedNumber from './UI/AnimatedNumber';
 import AnimatedText from './UI/AnimatedText';
 import LoopingCurvedLines from './UI/LoopingCurvedLines';
 import Waves from './UI/Waves';
-import PulsatingNodes from './UI/PulsatingNodes';
+import FloatingParticles from './UI/FloatingParticles';
+import RippleEffect from './UI/RippleEffect';
+import GradientOrbs from './UI/GradientOrbs';
+import NewConnectionsGraph from './UI/NewConnectionsGraph';
+import { getUserDisplayName } from '../utils/userDisplay';
 
 function IntroSlide({
     content,
@@ -62,7 +66,7 @@ function MostActiveDaySlide({ dayName, messageCount }: { dayName: string; messag
 
     return (
         <div ref={containerRef} className="wrapped-slide wrapped-slide--most-active-day">
-            <PulsatingNodes />
+            <FloatingParticles count={20} />
             {isVisible && (
                 <>
                     <div className="wrapped-slide__most-active-day-day-text">
@@ -96,6 +100,7 @@ interface WrappedSlidesProps {
     phoneNumber?: string;
     allStatistics?: {
         connectionCount: number;
+        newConnectionsThisWeek?: number;
         averageMessageLength: number;
         longestMessage: {
             text: string;
@@ -135,6 +140,7 @@ interface WrappedSlidesProps {
                 lastName: string;
                 phoneNumber: string;
                 twitter?: string;
+                profilePicture?: string | null;
             };
             wrapped: {
                 statistics: {
@@ -149,6 +155,20 @@ interface WrappedSlidesProps {
             };
         }>;
     } | null;
+    newConnections?: Array<{
+        id: number;
+        firstName: string;
+        lastName: string;
+        number: string;
+        profilePicture?: string | null;
+        connectionCreatedAt: string | null;
+    }>;
+    user?: {
+        id: number;
+        firstName: string;
+        lastName: string;
+        phoneNumber: string;
+    };
 }
 
 type Slide =
@@ -157,6 +177,7 @@ type Slide =
     | { type: 'twitter'; content: string | null }
     | { type: 'mostActiveDay'; date: string; messageCount: number }
     | { type: 'topContact'; phoneNumber: string; messageCount: number; name: string | null }
+    | { type: 'newConnections'; count: number; newConnections: Array<{ id: number; firstName: string; lastName: string; number: string; profilePicture?: string | null }>; allConnections: Array<{ id: number; firstName: string; lastName: string; number: string; profilePicture?: string | null }> }
     | { type: 'connectionsIntro'; content: string }
     | { type: 'connectionTwitter'; userName: string; recap: string | null }
     | { type: 'competition'; label: string; metric: 'totalMessages' | 'connectionCount'; userValue: number; connections: Array<{ name: string; value: number }> }
@@ -365,7 +386,7 @@ function CompetitionChartSlide({
 
     return (
         <div ref={containerRef} className="wrapped-slide wrapped-slide--competition">
-            <PulsatingNodes />
+            <GradientOrbs count={4} />
             {isVisible && (
                 <>
                     <h2 className="wrapped-slide__title">How You Compare</h2>
@@ -453,7 +474,7 @@ function TopContactSlide({ phoneNumber, messageCount, name }: { phoneNumber: str
 
     return (
         <div ref={containerRef} className="wrapped-slide wrapped-slide--top-contact">
-            <PulsatingNodes />
+            <RippleEffect />
             {isVisible && (
                 <>
                     <div className="wrapped-slide__top-contact-title">
@@ -476,7 +497,82 @@ function TopContactSlide({ phoneNumber, messageCount, name }: { phoneNumber: str
     );
 }
 
-export default function WrappedSlides({ statistics, twitterRecap, phoneNumber, allStatistics, breakdown, connectionsWrapped }: WrappedSlidesProps) {
+function NewConnectionsSlide({ count, newConnections, allConnections, user }: { count: number; newConnections: Array<{ id: number; firstName: string; lastName: string; number: string; profilePicture?: string | null }>; allConnections: Array<{ id: number; firstName: string; lastName: string; number: string; profilePicture?: string | null }>; user: { id: number; firstName: string; lastName: string; phoneNumber: string } }) {
+    const [isVisible, setIsVisible] = useState(false);
+    const [showNumber, setShowNumber] = useState(true);
+    const [showGraph, setShowGraph] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting && !isVisible) {
+                        setIsVisible(true);
+                        // After number animation completes (1s) + stays for 2s, fade out and show graph
+                        setTimeout(() => {
+                            setShowNumber(false);
+                            // After fade out completes (0.5s), show graph
+                            setTimeout(() => {
+                                setShowGraph(true);
+                            }, 500);
+                        }, 3000); // 1s animation + 2s display = 3s total
+                    }
+                });
+            },
+            { threshold: 0.5 }
+        );
+
+        const currentContainer = containerRef.current;
+        if (currentContainer) {
+            observer.observe(currentContainer);
+        }
+
+        return () => {
+            if (currentContainer) {
+                observer.unobserve(currentContainer);
+            }
+        };
+    }, [isVisible]);
+
+    return (
+        <div ref={containerRef} className="wrapped-slide wrapped-slide--new-connections">
+            {isVisible && (
+                <>
+                    <h2 className={`wrapped-slide__title wrapped-slide__title--new-connections ${showGraph ? 'wrapped-slide__title--graph-visible' : ''}`}>
+                        This week you made
+                    </h2>
+                    <div className={`wrapped-slide__new-connections-count ${!showNumber ? 'wrapped-slide__new-connections-count--fade-out' : ''}`}>
+                        <AnimatedNumber
+                            value={count}
+                            duration={1000}
+                            className="wrapped-slide__new-connections-number"
+                        />
+                        <span className="wrapped-slide__new-connections-label">
+                            {count === 1 ? 'new connection' : 'new connections'}
+                        </span>
+                    </div>
+                    {showGraph && (
+                        <div className="wrapped-slide__new-connections-graph-container">
+                            <NewConnectionsGraph
+                                user={{
+                                    id: user.id,
+                                    firstName: user.firstName,
+                                    lastName: user.lastName,
+                                    number: user.phoneNumber,
+                                }}
+                                allConnections={allConnections}
+                                newConnections={newConnections}
+                            />
+                        </div>
+                    )}
+                </>
+            )}
+        </div>
+    );
+}
+
+export default function WrappedSlides({ statistics, twitterRecap, phoneNumber, allStatistics, breakdown, connectionsWrapped, newConnections, user }: WrappedSlidesProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
@@ -538,6 +634,30 @@ export default function WrappedSlides({ statistics, twitterRecap, phoneNumber, a
             messageCount: breakdown.topContacts[0].messageCount,
             name: breakdown.topContacts[0].name,
         }] : []),
+        // Add new connections slide if there are new connections this week
+        ...((allStatistics?.newConnectionsThisWeek ?? 0) > 0 && newConnections && newConnections.length > 0 && user ? [{
+            type: 'newConnections' as const,
+            count: allStatistics?.newConnectionsThisWeek ?? 0,
+            newConnections: newConnections.map(c => ({
+                id: c.id,
+                firstName: c.firstName,
+                lastName: c.lastName,
+                number: c.number,
+                profilePicture: c.profilePicture,
+            })),
+            allConnections: (connectionsWrapped?.connections || []).map(conn => {
+                const profilePic = ('profilePicture' in conn.user && typeof conn.user.profilePicture === 'string')
+                    ? conn.user.profilePicture
+                    : null;
+                return {
+                    id: conn.user.id,
+                    firstName: conn.user.firstName,
+                    lastName: conn.user.lastName,
+                    number: conn.user.phoneNumber,
+                    profilePicture: profilePic,
+                };
+            }),
+        }] : []),
         // Add connections section if connections data is available
         ...(connectionsWrapped?.connections && connectionsWrapped.connections.length > 0 ? [
             {
@@ -561,20 +681,42 @@ export default function WrappedSlides({ statistics, twitterRecap, phoneNumber, a
                 label: `Total Messages`,
                 metric: 'totalMessages' as const,
                 userValue: statistics.totalMessages,
-                connections: connectionsWrapped.connections.map(conn => ({
-                    name: `${conn.user.firstName} ${conn.user.lastName}`,
-                    value: conn.wrapped.statistics.totalMessages,
-                })),
+                connections: connectionsWrapped.connections.map(conn => {
+                    // Convert connection user to User format for getUserDisplayName
+                    const userForDisplay = {
+                        id: conn.user.id,
+                        first_name: conn.user.firstName,
+                        last_name: conn.user.lastName,
+                        number: conn.user.phoneNumber,
+                        created_at: '',
+                        updated_at: '',
+                    };
+                    return {
+                        name: getUserDisplayName(userForDisplay),
+                        value: conn.wrapped.statistics.totalMessages,
+                    };
+                }),
             },
             {
                 type: 'competition' as const,
                 label: `Total Connections`,
                 metric: 'connectionCount' as const,
                 userValue: allStatistics?.connectionCount || 0,
-                connections: connectionsWrapped.connections.map(conn => ({
-                    name: `${conn.user.firstName} ${conn.user.lastName}`,
-                    value: conn.wrapped.statistics.connectionCount || 0,
-                })),
+                connections: connectionsWrapped.connections.map(conn => {
+                    // Convert connection user to User format for getUserDisplayName
+                    const userForDisplay = {
+                        id: conn.user.id,
+                        first_name: conn.user.firstName,
+                        last_name: conn.user.lastName,
+                        number: conn.user.phoneNumber,
+                        created_at: '',
+                        updated_at: '',
+                    };
+                    return {
+                        name: getUserDisplayName(userForDisplay),
+                        value: conn.wrapped.statistics.connectionCount || 0,
+                    };
+                }),
             },
         ] : []),
         {
@@ -713,6 +855,16 @@ export default function WrappedSlides({ statistics, twitterRecap, phoneNumber, a
             case 'topContact':
                 return (
                     <TopContactSlide phoneNumber={slide.phoneNumber} messageCount={slide.messageCount} name={slide.name} />
+                );
+
+            case 'newConnections':
+                return (
+                    <NewConnectionsSlide
+                        count={slide.count}
+                        newConnections={slide.newConnections}
+                        allConnections={slide.allConnections}
+                        user={user || { id: 0, firstName: '', lastName: '', phoneNumber: '' }}
+                    />
                 );
 
             case 'connectionsIntro': {

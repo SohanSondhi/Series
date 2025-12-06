@@ -17,6 +17,7 @@ interface WrappedData {
         messagesSent: number;
         messagesReceived: number;
         connectionCount: number;
+        newConnectionsThisWeek?: number;
         averageMessageLength: number;
         longestMessage: {
             text: string;
@@ -32,6 +33,14 @@ interface WrappedData {
             messageCount: number;
         } | null;
     };
+    newConnections?: Array<{
+        id: number;
+        firstName: string;
+        lastName: string;
+        number: string;
+        profilePicture?: string | null;
+        connectionCreatedAt: string | null;
+    }>;
     breakdown: {
         topContacts: Array<{
             phoneNumber: string;
@@ -77,12 +86,14 @@ export default function WrappedPage() {
                 lastName: string;
                 phoneNumber: string;
                 twitter?: string;
+                profilePicture?: string | null;
             };
             wrapped: {
                 statistics: {
                     totalMessages: number;
                     messagesSent: number;
                     messagesReceived: number;
+                    connectionCount: number;
                 };
                 twitterWrapped?: {
                     weeklyRecap: string | null;
@@ -249,9 +260,12 @@ export default function WrappedPage() {
                         longestMessage: statistics.longestMessage,
                         dateRange: statistics.dateRange,
                         mostActiveDay: statistics.mostActiveDay,
+                        newConnectionsThisWeek: statistics.newConnectionsThisWeek,
                     }}
                     breakdown={wrappedData.breakdown}
                     connectionsWrapped={connectionsWrapped}
+                    newConnections={wrappedData.newConnections}
+                    user={user}
                 />
             </div>
         </div>

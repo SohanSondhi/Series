@@ -229,6 +229,26 @@ async function calculateWrappedData(user: typeof users.$inferSelect) {
         .from(connections)
         .where(eq(connections.userId, user.id));
 
+    // Calculate new connections from the past week
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+    const newConnectionsThisWeek = await db
+        .select({
+            connectedUser: users,
+            connectionCreatedAt: connections.createdAt,
+        })
+        .from(connections)
+        .innerJoin(users, eq(connections.connectedUserId, users.id))
+        .where(
+            and(
+                eq(connections.userId, user.id),
+                gte(connections.createdAt, oneWeekAgo)
+            )
+        );
+
+    const newConnectionsCount = newConnectionsThisWeek.length;
+
     const avgMessageLength = await db
         .select({
             avgLength: sql<number>`AVG(LENGTH(${messages.messageText}))`,
@@ -286,6 +306,7 @@ async function calculateWrappedData(user: typeof users.$inferSelect) {
             messagesSent,
             messagesReceived,
             connectionCount: connectionCount[0]?.count || 0,
+            newConnectionsThisWeek: newConnectionsCount,
             averageMessageLength: avgMessageLength[0]?.avgLength
                 ? Math.round(Number(avgMessageLength[0].avgLength))
                 : 0,
@@ -309,6 +330,14 @@ async function calculateWrappedData(user: typeof users.$inferSelect) {
                 }
                 : null,
         },
+        newConnections: newConnectionsThisWeek.map(conn => ({
+            id: conn.connectedUser.id,
+            firstName: conn.connectedUser.firstName,
+            lastName: conn.connectedUser.lastName,
+            number: conn.connectedUser.number,
+            profilePicture: conn.connectedUser.profilePicture,
+            connectionCreatedAt: conn.connectionCreatedAt?.toISOString() || null,
+        })),
         breakdown: {
             topContacts: topContacts.map(contact => ({
                 phoneNumber: contact.phoneNumber,
@@ -424,10 +453,11 @@ router.get('/:phoneNumber/connections', async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        // Get all connections
+        // Get all connections with connection createdAt
         const userConnections = await db
             .select({
                 connectedUser: users,
+                connectionCreatedAt: connections.createdAt,
             })
             .from(connections)
             .innerJoin(users, eq(connections.connectedUserId, users.id))
@@ -479,8 +509,10 @@ router.get('/:phoneNumber/connections', async (req, res) => {
                         lastName: connectedUser.lastName,
                         phoneNumber: connectedUser.number,
                         twitter: connectedUser.twitter,
+                        profilePicture: connectedUser.profilePicture,
                     },
                     wrapped: wrappedData,
+                    connectionCreatedAt: userConnections.find(c => c.connectedUser.id === connectedUser.id)?.connectionCreatedAt?.toISOString() || null,
                 };
             })
         );

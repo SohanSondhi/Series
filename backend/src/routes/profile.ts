@@ -100,7 +100,7 @@ router.get('/:phoneNumber', async (req, res) => {
             return res.status(404).json({ error: 'Profile not found' });
         }
 
-        // Get user's connections with their weekly recaps
+        // Get user's connections with their weekly recaps and connection createdAt
         const userConnections = await db
             .select({
                 id: users.id,
@@ -117,13 +117,17 @@ router.get('/:phoneNumber', async (req, res) => {
                 weeklyRecap: users.weeklyRecap,
                 createdAt: users.createdAt,
                 updatedAt: users.updatedAt,
+                connectionCreatedAt: connections.createdAt,
             })
             .from(connections)
             .innerJoin(users, eq(connections.connectedUserId, users.id))
             .where(eq(connections.userId, user.id));
 
-        // Transform connections
-        const transformedConnections = userConnections.map(transformUser);
+        // Transform connections and include connection createdAt
+        const transformedConnections = userConnections.map(conn => ({
+            ...transformUser(conn),
+            connection_created_at: conn.connectionCreatedAt?.toISOString() || null,
+        }));
 
         // Return user with connections
         res.json({
