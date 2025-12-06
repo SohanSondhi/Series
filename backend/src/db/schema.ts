@@ -49,8 +49,33 @@ export const connectionsRelations = relations(connections, ({ one }) => ({
     }),
 }));
 
+// Messages table for storing Kafka message events
+export const messages = pgTable('messages', {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    messageText: text('message_text').notNull(),
+    direction: varchar('direction', { length: 20 }).notNull(), // 'inbound' or 'outbound'
+    timestamp: timestamp('timestamp').notNull(),
+    counterpartyPhone: varchar('counterparty_phone', { length: 20 }), // Phone number of the other party
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+    userIdIdx: index('idx_messages_user_id').on(table.userId),
+    timestampIdx: index('idx_messages_timestamp').on(table.timestamp),
+    counterpartyIdx: index('idx_messages_counterparty').on(table.counterpartyPhone),
+}));
+
+// Define relations
+export const messagesRelations = relations(messages, ({ one }) => ({
+    user: one(users, {
+        fields: [messages.userId],
+        references: [users.id],
+    }),
+}));
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Connection = typeof connections.$inferSelect;
 export type NewConnection = typeof connections.$inferInsert;
+export type Message = typeof messages.$inferSelect;
+export type NewMessage = typeof messages.$inferInsert;
 
