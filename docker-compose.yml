@@ -6,7 +6,7 @@ services:
     container_name: series_postgres
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: series_db
     ports:
       - "5432:5432"
@@ -30,7 +30,7 @@ services:
       DB_PORT: 5432
       DB_NAME: series_db
       DB_USER: postgres
-      DB_PASSWORD: postgres
+      DB_PASSWORD: ${DB_PASSWORD}
       # LLM Configuration (Ollama running on host)
       LLM_PROVIDER: ${LLM_PROVIDER:-llama}
       LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:11434}
@@ -58,7 +58,7 @@ services:
       DB_PORT: 5432
       DB_NAME: series_db
       DB_USER: postgres
-      DB_PASSWORD: postgres
+      DB_PASSWORD: ${DB_PASSWORD}
       # Kafka configuration - set these in your .env or override here
       KAFKA_CLIENT_ID: ${KAFKA_CLIENT_ID:-}
       KAFKA_BROKERS: ${KAFKA_BROKERS:-}
