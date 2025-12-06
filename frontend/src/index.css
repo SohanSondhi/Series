@@ -2100,12 +2100,35 @@ body::before {
   height: 100%;
   position: relative;
   z-index: 2;
+  min-height: 0; /* Allows flex child to shrink below content size */
 }
 
 .wrapped-slide__twitter-content-wrapper {
   flex: 1;
   margin-top: 2rem;
   padding: 0 1rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: calc(100vh - 200px);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
+}
+
+.wrapped-slide__twitter-content-wrapper::-webkit-scrollbar {
+  width: 8px;
+}
+
+.wrapped-slide__twitter-content-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.wrapped-slide__twitter-content-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+.wrapped-slide__twitter-content-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.5);
 }
 
 /* Ensure shooting stars only appear on Twitter slide */

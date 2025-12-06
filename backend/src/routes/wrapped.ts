@@ -248,6 +248,7 @@ async function calculateWrappedData(user: typeof users.$inferSelect) {
 
     let twitterWrapped = null;
     const twitterUsername = extractUsername(user.twitter);
+    console.log('twitterUsername', twitterUsername);
 
     if (twitterUsername) {
         try {
@@ -350,10 +351,10 @@ router.get('/:phoneNumber', async (req, res) => {
         const cacheValid = cached && cached.lastUpdated &&
             (now.getTime() - new Date(cached.lastUpdated).getTime()) < CACHE_TTL_MS;
 
-        if (cacheValid && cached.data) {
-            console.log(`✅ Returning cached wrapped data for user ${user.id}`);
-            return res.json(cached.data as any);
-        }
+        // if (cacheValid && cached.data) {
+        //     console.log(`✅ Returning cached wrapped data for user ${user.id}`);
+        //     return res.json(cached.data as any);
+        // }
 
         // Calculate wrapped data
         console.log(`🔄 Calculating wrapped data for user ${user.id}`);
