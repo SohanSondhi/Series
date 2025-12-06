@@ -1,5 +1,8 @@
 FROM node:20-alpine
 
+# Install postgresql-client for pg_isready
+RUN apk add --no-cache postgresql-client
+
 WORKDIR /app
 
 COPY package*.json ./
@@ -7,7 +10,10 @@ RUN npm install
 
 COPY . .
 
-EXPOSE 5000
+# Make startup script executable
+RUN chmod +x scripts/start.sh
 
-CMD ["npm", "run", "dev"]
+EXPOSE 5001
+
+CMD ["./scripts/start.sh"]
 
