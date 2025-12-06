@@ -2,8 +2,103 @@ import { Router } from 'express';
 import { db } from '../db/index.js';
 import { users, messages, connections } from '../db/schema.js';
 import { eq, and, count, sql, desc } from 'drizzle-orm';
+import { aggregateTweetContent, generateWeeklyRecap } from '../services/llm.js';
+import { extractUsername, fetchTwitterUser, fetchRecentTweets, TwitterTweet } from './twitter.js';
 
 const router = Router();
+
+// Constants
+const HARDCODED_TWITTER_POSTS_FALLBACK = `[Post 1 - Dec 1]: Excited to share some updates on my latest projects and thoughts!
+[Post 2 - Dec 2]: Had an amazing conversation with the team today about innovation and the future of technology.
+[Post 3 - Dec 3]: Reflecting on the importance of building meaningful connections and staying authentic online.
+[Post 4 - Dec 4]: Just finished reading an incredible book that changed my perspective on productivity and creativity.
+[Post 5 - Dec 5]: Grateful for all the support and engagement from this amazing community.`;
+
+const LLM_CONTEXT_TEMPLATE = (firstName: string, lastName: string, username?: string) => {
+    const userIdentifier = username
+        ? `${firstName} ${lastName} (@${username})`
+        : `${firstName} ${lastName}`;
+    return `This is a weekly recap for ${userIdentifier} based on their Twitter activity.`;
+};
+
+const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/**
+ * Helper function to generate Twitter wrapped data with fallback handling
+ */
+async function generateTwitterWrapped(
+    user: { firstName: string; lastName: string },
+    twitterUsername: string
+) {
+    let twitterUser = null;
+    let tweets: TwitterTweet[] = [];
+    let error: { type: string; message: string; retryAfter?: string | null } | null = null;
+
+    // Try to fetch Twitter data - if ANY error occurs, use hardcoded fallback
+    try {
+        console.log(`📡 Attempting to fetch Twitter data for @${twitterUsername}`);
+        twitterUser = await fetchTwitterUser(twitterUsername);
+        console.log(`✅ Twitter user fetched: ${twitterUser ? twitterUser.username : 'null'}`);
+        tweets = await fetchRecentTweets(twitterUsername, 7, 100);
+        console.log(`✅ Tweets fetched: ${tweets.length} tweets`);
+    } catch (err: any) {
+        // ANY error (rate limit, API error, network error, etc.) = use hardcoded fallback
+        const isRateLimit = err && (err.isRateLimit === true || err.isRateLimit === 'true');
+        console.log('⚠️ Twitter API error caught in wrapped route, using hardcoded fallback');
+        console.log('Error details:', {
+            message: err?.message || err?.toString(),
+            isRateLimit: isRateLimit,
+            retryAfter: err?.retryAfter,
+            errorType: err?.constructor?.name,
+        });
+        error = {
+            type: isRateLimit ? 'rate_limit' : 'api_error',
+            message: isRateLimit
+                ? 'Twitter API rate limit exceeded. Using fallback content for recap.'
+                : 'Failed to fetch Twitter data. Using fallback content for recap.',
+            retryAfter: err?.retryAfter || null,
+        };
+        // Explicitly set to null/empty to ensure we use fallback
+        twitterUser = null;
+        tweets = [];
+        console.log('✅ Error handled, fallback will be used for content');
+    }
+
+    // Use tweets if available, otherwise use hardcoded fallback
+    const aggregatedContent = tweets.length > 0
+        ? aggregateTweetContent(tweets)
+        : HARDCODED_TWITTER_POSTS_FALLBACK;
+
+    console.log(`📝 Using ${tweets.length > 0 ? 'actual tweets' : 'hardcoded fallback'} for recap generation`);
+
+    // Generate weekly recap
+    let weeklyRecap: string | null = null;
+    try {
+        const context = LLM_CONTEXT_TEMPLATE(
+            user.firstName,
+            user.lastName,
+            twitterUser?.username
+        );
+        weeklyRecap = await generateWeeklyRecap({
+            textContent: aggregatedContent,
+            context,
+            maxWords: 200,
+        });
+    } catch (llmError) {
+        console.error('Error generating weekly recap:', llmError);
+    }
+
+    return {
+        user: twitterUser ? {
+            username: twitterUser.username,
+            name: twitterUser.name,
+            profileImageUrl: twitterUser.profile_image_url,
+            verified: twitterUser.verified || false,
+        } : null,
+        weeklyRecap,
+        error,
+    };
+}
 
 /**
  * GET /api/wrapped/:phoneNumber
@@ -46,7 +141,7 @@ router.get('/:phoneNumber', async (req, res) => {
         const messagesReceived = messageStats.find(s => s.direction === 'inbound')?.count || 0;
         const totalMessages = messagesSent + messagesReceived;
 
-        // Get top contacts (people you messaged with most)
+        // Get top contacts
         const topContacts = await db
             .select({
                 counterpartyPhone: messages.counterpartyPhone,
@@ -115,7 +210,7 @@ router.get('/:phoneNumber', async (req, res) => {
             .orderBy(desc(sql`LENGTH(${messages.messageText})`))
             .limit(1);
 
-        // Get most active day (by message count)
+        // Get most active day
         const mostActiveDay = await db
             .select({
                 date: sql<Date>`DATE(${messages.timestamp})`,
@@ -127,7 +222,26 @@ router.get('/:phoneNumber', async (req, res) => {
             .orderBy(desc(count()))
             .limit(1);
 
-        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        // Get Twitter wrapped data if user has Twitter username
+        let twitterWrapped = null;
+        const twitterUsername = extractUsername(user.twitter);
+
+        if (twitterUsername) {
+            try {
+                console.log(`🔄 Generating Twitter wrapped for @${twitterUsername}`);
+                twitterWrapped = await generateTwitterWrapped(
+                    { firstName: user.firstName, lastName: user.lastName },
+                    twitterUsername
+                );
+                console.log(`✅ Twitter wrapped generated successfully`);
+                console.log(`📝 Twitter wrapped: ${twitterWrapped?.weeklyRecap}`);
+            } catch (error) {
+                console.error('❌ Unexpected error in generateTwitterWrapped:', error);
+                // Even if there's an unexpected error, set twitterWrapped to null
+                // so the response doesn't fail
+                twitterWrapped = null;
+            }
+        }
 
         res.json({
             user: {
@@ -179,6 +293,7 @@ router.get('/:phoneNumber', async (req, res) => {
                     count: hour.count,
                 })),
             },
+            twitterWrapped: twitterWrapped,
         });
     } catch (error) {
         console.error('Error fetching wrapped statistics:', error);

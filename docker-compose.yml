@@ -31,11 +31,17 @@ services:
       DB_NAME: series_db
       DB_USER: postgres
       DB_PASSWORD: postgres
+      # LLM Configuration (Ollama running on host)
+      LLM_PROVIDER: ${LLM_PROVIDER:-llama}
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:11434}
+      LLM_MODEL: ${LLM_MODEL:-llama3.2}
     ports:
       - "5001:5001"
     volumes:
       - ./backend:/app
       - /app/node_modules
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy

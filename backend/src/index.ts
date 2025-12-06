@@ -8,6 +8,7 @@ import usersRouter from './routes/users.js';
 import profileRouter from './routes/profile.js';
 import wrappedRouter from './routes/wrapped.js';
 import messagesRouter from './routes/messages.js';
+import twitterRouter from './routes/twitter.js';
 import { sql, count, desc } from 'drizzle-orm';
 
 dotenv.config();
@@ -77,6 +78,7 @@ app.use('/api/users', usersRouter);
 app.use('/api/profile', profileRouter);
 app.use('/api/wrapped', wrappedRouter);
 app.use('/api/messages', messagesRouter);
+app.use('/api/twitter', twitterRouter);
 
 // Start server
 app.listen(PORT, () => {

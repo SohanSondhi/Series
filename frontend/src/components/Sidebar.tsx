@@ -47,6 +47,13 @@ export default function Sidebar({ isOpen, onClose, phoneNumber }: SidebarProps) 
         handleViewProfile();
     };
 
+    const handleViewWrapped = () => {
+        if (phoneNumber) {
+            navigate(`/wrapped/${phoneNumber}`);
+        }
+        onClose();
+    };
+
     const fullName = user ? `${user.first_name} ${user.last_name}` : 'Sabrina Do';
     const initials = user ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase() : 'SD';
 
@@ -85,6 +92,10 @@ export default function Sidebar({ isOpen, onClose, phoneNumber }: SidebarProps) 
                     <button className="sidebar__nav-item" onClick={handleEditProfile}>
                         <span className="sidebar__nav-icon">✏️</span>
                         <span>Edit profile</span>
+                    </button>
+                    <button className="sidebar__nav-item" onClick={handleViewWrapped}>
+                        <span className="sidebar__nav-icon">📊</span>
+                        <span>View Wrapped</span>
                     </button>
                     <button className="sidebar__nav-item">
                         <span className="sidebar__nav-icon">💬</span>

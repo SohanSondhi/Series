@@ -26,11 +26,12 @@ docker-compose up
 docker-compose down
 ```
 
-Services are held locally here:
+Services are available locally here:
 
 - **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:5001
 - **PostgreSQL**: localhost:5432
+- **Ollama (LLM)**: http://localhost:11434
 - **Kafka Ingestor**: Runs as a separate container (no exposed port)
 
 ## Repo Structure
@@ -66,6 +67,20 @@ DB_PORT=5432
 DB_NAME=series_db
 DB_USER=postgres
 DB_PASSWORD=postgres
+
+# Twitter API (optional - for Twitter routes)
+TWITTER_BEARER_TOKEN=your_twitter_bearer_token_here
+
+# LLM API (optional - for generating recaps from tweets)
+# Default: Llama via Ollama (runs in Docker, no API key required)
+LLM_PROVIDER=llama  # Options: 'llama', 'ollama', 'openai'
+LLM_BASE_URL=http://ollama:11434  # Ollama base URL (use 'ollama' service name in Docker)
+LLM_MODEL=llama3.2  # Llama model name (default: llama3.2)
+# Note: If running locally (not in Docker), use http://localhost:11434
+
+# Alternative: OpenAI (if LLM_PROVIDER=openai)
+# OPENAI_API_KEY=your_openai_api_key_here
+# OPENAI_MODEL=gpt-4o-mini  # Recommended: gpt-4o-mini (cost-effective) or gpt-4o (more capable)
 ```
 
 ### Frontend
@@ -114,9 +129,16 @@ KAFKA_TLS_ENABLED=true
 KAFKA_FROM_BEGINNING=false
 ```
 
-in root directly
+in root directory
 
-2. Start all services (including the Kafka ingestor):
+2. Pull a Llama model for Ollama (first time only):
+
+```bash
+docker exec series_ollama ollama pull llama3.2
+# Or use another model: docker exec series_ollama ollama pull llama3.1
+```
+
+3. Start all services (including the Kafka ingestor and Ollama):
 
 ```bash
 docker-compose up

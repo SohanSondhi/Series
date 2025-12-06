@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { User } from '../types/user';
+import TweetsModal from './TweetsModal';
 
 interface ProfileCardProps {
     user: User;
@@ -7,6 +9,7 @@ interface ProfileCardProps {
 
 export default function ProfileCard({ user, onClose }: ProfileCardProps) {
     const fullName = `${user.first_name} ${user.last_name}`;
+    const [isTweetsModalOpen, setIsTweetsModalOpen] = useState(false);
 
     return (
         <div className="profile-card">
@@ -81,7 +84,65 @@ export default function ProfileCard({ user, onClose }: ProfileCardProps) {
                             </svg>
                         </a>
                     )}
+                    {user.twitter && (
+                        <button
+                            onClick={() => setIsTweetsModalOpen(true)}
+                            className="profile-card__social-link"
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: '0.5rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'inherit',
+                            }}
+                            aria-label="Get Tweets"
+                            title="Get Tweets"
+                        >
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                            </svg>
+                        </button>
+                    )}
                 </div>
+
+                {user.twitter && (
+                    <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e1e8ed' }}>
+                        <button
+                            onClick={() => setIsTweetsModalOpen(true)}
+                            style={{
+                                width: '100%',
+                                padding: '0.75rem 1.5rem',
+                                backgroundColor: '#1da1f2',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '1rem',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                transition: 'background-color 0.2s',
+                            }}
+                            onMouseOver={(e) => {
+                                e.currentTarget.style.backgroundColor = '#1a91da';
+                            }}
+                            onMouseOut={(e) => {
+                                e.currentTarget.style.backgroundColor = '#1da1f2';
+                            }}
+                        >
+                            🐦 Get Tweets
+                        </button>
+                    </div>
+                )}
+
+                {user.twitter && (
+                    <TweetsModal
+                        twitterUrl={user.twitter}
+                        isOpen={isTweetsModalOpen}
+                        onClose={() => setIsTweetsModalOpen(false)}
+                    />
+                )}
             </div>
         </div>
     );

@@ -1159,3 +1159,317 @@ body {
 .edit-profile__save-btn:hover {
   background: #000;
 }
+
+/* Wrapped Page Styles */
+.wrapped-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.wrapped-page__header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.wrapped-page__header h1 {
+  font-size: 3rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 0.5rem;
+  letter-spacing: -1px;
+}
+
+.wrapped-page__subtitle {
+  font-size: 1.25rem;
+  color: #666;
+  font-weight: 400;
+}
+
+.wrapped-page__content {
+  display: flex;
+  flex-direction: column;
+  gap: 3rem;
+}
+
+.wrapped-section {
+  background: white;
+  border-radius: 24px;
+  padding: 2.5rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.wrapped-section--twitter {
+  background: linear-gradient(135deg, #1da1f2 0%, #0d8bd9 100%);
+  color: white;
+}
+
+.wrapped-section__title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 2rem;
+  letter-spacing: -0.5px;
+}
+
+.wrapped-section--twitter .wrapped-section__title {
+  color: white;
+}
+
+.wrapped-section__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.wrapped-stat-card {
+  background: #f5f5f5;
+  border-radius: 16px;
+  padding: 1.5rem;
+  text-align: center;
+  transition: transform 0.2s;
+}
+
+.wrapped-section--twitter .wrapped-stat-card {
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+.wrapped-stat-card:hover {
+  transform: translateY(-4px);
+}
+
+.wrapped-stat-card__value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 0.5rem;
+}
+
+.wrapped-section--twitter .wrapped-stat-card__value {
+  color: white;
+}
+
+.wrapped-stat-card__label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #666;
+}
+
+.wrapped-section--twitter .wrapped-stat-card__label {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Twitter Wrapped Styles */
+.twitter-wrapped__profile {
+  margin-bottom: 2rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.twitter-wrapped__profile-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.5rem;
+}
+
+.twitter-wrapped__avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 3px solid white;
+}
+
+.twitter-wrapped__name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.twitter-wrapped__verified {
+  color: #1da1f2;
+  background: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.twitter-wrapped__username {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 0.5rem;
+}
+
+.twitter-wrapped__description {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.5;
+  margin-top: 0.5rem;
+}
+
+.twitter-wrapped__insights {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.twitter-wrapped__insights-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 1rem;
+}
+
+.twitter-wrapped__insight-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+}
+
+.twitter-wrapped__insight-label {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 500;
+}
+
+.twitter-wrapped__insight-value {
+  font-size: 1rem;
+  color: white;
+  font-weight: 700;
+}
+
+.twitter-wrapped__recap {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.twitter-wrapped__recap-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 1.5rem;
+}
+
+.twitter-wrapped__recap-content {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 2rem;
+  backdrop-filter: blur(10px);
+}
+
+.twitter-wrapped__recap-paragraph {
+  color: white;
+  font-size: 1.1rem;
+  line-height: 1.8;
+  margin-bottom: 1.25rem;
+}
+
+.twitter-wrapped__recap-paragraph:last-child {
+  margin-bottom: 0;
+}
+
+.twitter-wrapped__no-recap {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  text-align: center;
+}
+
+.twitter-wrapped__no-recap p {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1rem;
+}
+
+.twitter-wrapped__error {
+  margin-top: 2rem;
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  text-align: center;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.twitter-wrapped__error-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.twitter-wrapped__error-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 1rem;
+}
+
+.twitter-wrapped__error-message {
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 1.1rem;
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+
+.twitter-wrapped__error-retry {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.9rem;
+  font-style: italic;
+  margin-top: 0.5rem;
+}
+
+/* Top Contacts Styles */
+.wrapped-section__contacts {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.wrapped-contact {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1rem;
+  background: #f5f5f5;
+  border-radius: 12px;
+  transition: transform 0.2s;
+}
+
+.wrapped-contact:hover {
+  transform: translateX(4px);
+  background: #e5e5e5;
+}
+
+.wrapped-contact__rank {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #667eea;
+  min-width: 40px;
+}
+
+.wrapped-contact__phone {
+  flex: 1;
+  font-size: 1rem;
+  color: #333;
+  font-weight: 500;
+}
+
+.wrapped-contact__count {
+  font-size: 0.875rem;
+  color: #666;
+  font-weight: 600;
+}

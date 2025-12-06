@@ -4,6 +4,7 @@ import ProfilePage from './components/ProfilePage'
 import CreatePage from './components/CreatePage'
 import EditProfilePage from './components/EditProfilePage'
 import MessagesPage from './components/MessagesPage'
+import WrappedPage from './components/WrappedPage'
 
 function App() {
     return (
@@ -13,6 +14,7 @@ function App() {
             <Route path="/messages" element={<MessagesPage />} />
             <Route path="/profile/:phoneNumber" element={<ProfilePage />} />
             <Route path="/profile/:phoneNumber/edit" element={<EditProfilePage />} />
+            <Route path="/wrapped/:phoneNumber" element={<WrappedPage />} />
         </Routes>
     )
 }
