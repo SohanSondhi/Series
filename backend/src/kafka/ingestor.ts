@@ -55,6 +55,87 @@ async function processMessageReceived(event: KafkaEvent): Promise<void> {
     }
 
     const userPhone = data.from_phone;
+    console.log("Received data:", data);
+
+    // Mark the message as read
+    if (data.chat_id) {
+        const apiBase = process.env.SERIES_API_BASE?.trim();
+        const apiKey = process.env.SERIES_API_KEY?.trim();
+        const markAsReadUrl = `${apiBase}/api/chats/${data.chat_id}/mark_as_read`;
+        
+        console.log(`📖 Marking message as read: ${markAsReadUrl}`);
+        
+        const markAsReadResponse = await fetch(markAsReadUrl, {
+            method: "PUT",
+            headers: {
+                'Accept': '*/*',
+                'Authorization': `Bearer ${apiKey}`,
+            },
+        });
+
+        if (markAsReadResponse.status !== 204) {
+            console.error(`Failed to mark chat ${data.chat_id} as read, status: ${markAsReadResponse.status}`);
+        } else {
+            console.log(`✅ Marked chat ${data.chat_id} as read`);
+        }
+    }
+
+    // Start typing indicator
+    let typingInterval: NodeJS.Timeout | null = null;
+    if (data.chat_id) {
+        const apiBase = process.env.SERIES_API_BASE?.trim();
+        const apiKey = process.env.SERIES_API_KEY?.trim();
+        
+        const startTyping = async () => {
+            try {
+                const response = await fetch(`${apiBase}/api/chats/${data.chat_id}/start_typing`, {
+                    method: "POST",
+                    headers: {
+                        'Accept': '*/*',
+                        'Authorization': `Bearer ${apiKey}`,
+                    },
+                });
+                console.log(`⌨️ Typing indicator sent, status: ${response.status}`);
+            } catch (error) {
+                console.error(`Failed to send typing indicator for chat ${data.chat_id}:`, error);
+            }
+        };
+
+        // Trigger the typing indicator every 3 seconds
+        typingInterval = setInterval(startTyping, 3000);
+        await startTyping(); // Trigger the first typing indicator immediately
+    }
+
+    try {
+        // Check if the message is related to "wrapped"
+        const isSummaryRelated = await determineIfSummaryRelated(event);
+
+        if (isSummaryRelated) {
+            // Send the summary message
+            await sendSummaryTextMessage(event);
+        }
+    } catch (error) {
+        console.error('Error processing message:', error);
+    } finally {
+        // Stop typing indicator after the message is sent
+        if (data.chat_id && typingInterval) {
+            clearInterval(typingInterval);
+            const apiBase = process.env.SERIES_API_BASE?.trim();
+            const apiKey = process.env.SERIES_API_KEY?.trim();
+            try {
+                const response = await fetch(`${apiBase}/api/chats/${data.chat_id}/stop_typing`, {
+                    method: "POST",
+                    headers: {
+                        'Accept': '*/*',
+                        'Authorization': `Bearer ${apiKey}`,
+                    },
+                });
+                console.log(`🛑 Stop typing sent, status: ${response.status}`);
+            } catch (error) {
+                console.error(`Failed to stop typing indicator for chat ${data.chat_id}:`, error);
+            }
+        }
+    }
 
     // Find all counterparties (the other participant(s) in the chat)
     const counterpartyPhonesUnfiltered = data.chat_handles?.map(h => h.identifier) || [];
@@ -99,9 +180,6 @@ async function processEvent(event: KafkaEvent): Promise<void> {
     // Only process message.received events for now
     if (event.event_type === 'message.received') {
         await processMessageReceived(event);
-        if (await determineIfSummaryRelated(event)) {
-            await sendSummaryTextMessage(event);
-        }
     } else {
         console.log(`ℹ️  Skipping event type: ${event.event_type}`);
     }

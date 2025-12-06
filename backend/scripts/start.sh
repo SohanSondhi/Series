@@ -13,6 +13,9 @@ echo "✅ Database is ready!"
 echo "🔄 Running database migrations..."
 npm run db:migrate
 
+echo "🌱 Seeding database with test data..."
+npx tsx src/db/seed.ts || echo "⚠️ Seed failed or already seeded, continuing..."
+
 echo "🚀 Starting server..."
 exec npm run dev
 
