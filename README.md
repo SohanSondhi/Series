@@ -1,72 +1,116 @@
 # Series Hax Project
 
-<img width="794" height="483" alt="Screenshot 2025-12-06 at 4 02 00 PM" src="https://github.com/user-attachments/assets/8fe99e47-238c-4542-a9de-9a195c02a0e2" />
+<img width="794" height="483" alt="Series UI screenshot" src="https://github.com/user-attachments/assets/8fe99e47-238c-4542-a9de-9a195c02a0e2" />
+
+Series pairs a React/Vite frontend with an Express/TypeScript backend, PostgreSQL, and a Kafka ingestor for streaming messages into the app. An LLM provider (Ollama by default) is used for text generation/recaps.
 
 ---
 
-## Demo 
-[Demo Video](demo.MOV)
+## Demo
 
-YouTube Demo: https://www.youtube.com/watch?v=kEuqcATzOWE 
+- [Demo Video](demo.MOV)
+- YouTube: https://www.youtube.com/watch?v=kEuqcATzOWE
 
-## Tech Stack
+## Stack
 
-- **Frontend**: React 18 + TypeScript + Vite
-- **Backend**: Express.js + Node.js + TypeScript
-- **Database**: PostgreSQL 16
-- **ORM**: Drizzle ORM
-- **Containerization**: Docker & Docker Compose
+- **Frontend:** React 18 + TypeScript + Vite
+- **Backend:** Express + TypeScript
+- **Database:** PostgreSQL 16 with Drizzle ORM
+- **Streaming:** Kafka ingestor (separate service)
+- **LLM:** Ollama by default (can swap providers)
+- **Containerization:** Docker & Docker Compose
 
-## Prereqs
+## Pipeline
 
-- Docker and Docker Compose installed
-- Make (optional, for using Makefile commands)
-- Node.js 20+ (if running locally without Docker)
+- Kafka ingestion -> Twitter import -> LLM recap -> Series API to send automated messages
 
-### Quick Start
+## Services & Ports
 
-```bash
-# Build containers
-docker-compose build
-
-docker-compose up
-
-# Stop services
-docker-compose down
-```
-
-Services are available locally here:
-
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:5001
-- **PostgreSQL**: localhost:5432
-- **Ollama (LLM)**: http://localhost:11434
-- **Kafka Ingestor**: Runs as a separate container (no exposed port)
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:5001
+- PostgreSQL: localhost:5432
+- LLM (host-level Ollama by default): http://localhost:11434
+- Kafka ingestor: runs as its own container (no exposed port)
 
 ## Repo Structure
 
 ```
 Series/
-├── frontend/          # React + TypeScript frontend
+├── assets/               # Screenshots and branding
+├── backend/              # Express API, Drizzle schema, Kafka ingestor
 │   ├── src/
-│   ├── package.json
-│   └── Dockerfile
-├── backend/           # Express + Node.js backend
+│   │   ├── db/           # Drizzle schema, migrate/seed helpers
+│   │   ├── kafka/        # Ingestor entry + Kafka helpers
+│   │   └── routes/       # messages, profile, twitter, users, wrapped, send
+│   ├── scripts/start.sh  # Wait for DB, run migrations + seed, start dev server
+│   ├── Dockerfile
+│   └── package.json
+├── frontend/             # React/Vite app
 │   ├── src/
-│   │   ├── db/       # Database configuration
-│   │   └── index.ts  # Express server
-│   ├── package.json
-│   └── Dockerfile
-├── docker-compose.yml # Docker orchestration
-├── Makefile          # Convenient commands
+│   │   ├── components/   # Pages (Profile, Messages, Wrapped) + modals
+│   │   ├── components/UI # Animations, particles, graph effects
+│   │   └── utils/        # User helpers/types
+│   ├── Dockerfile
+│   └── package.json
+├── docker-compose.yml    # Orchestrates postgres, backend, frontend, ingestor
+├── Makefile              # Convenience targets for Docker/dev workflows
 └── README.md
 ```
 
-## Environment Variables
+## Prereqs
 
-### Backend
+- Docker + Docker Compose (recommended path)
+- Node.js 20+ (if running locally without Docker)
+- Make (optional, for Makefile shortcuts)
 
-Create a `.env` file in the `backend/` directory:
+## Quick Start (Docker)
+
+1. Create a root `.env` (in the repo root):
+
+   ```env
+   DB_PASSWORD=postgres            # required
+   LLM_PROVIDER=llama              # optional override
+   LLM_BASE_URL=http://host.docker.internal:11434
+   LLM_MODEL=llama3.2
+
+   # Kafka (only if using the ingestor)
+   KAFKA_CLIENT_ID=
+   KAFKA_BROKERS=
+   KAFKA_CONSUMER_GROUP=
+   KAFKA_TOPIC=
+   KAFKA_SASL_USERNAME=
+   KAFKA_SASL_PASSWORD=
+   KAFKA_SASL_MECHANISM=plain
+   KAFKA_TLS_ENABLED=true
+   KAFKA_FROM_BEGINNING=false
+
+   # Optional API config for ingestor → Series API
+   SERIES_API_BASE=
+   SERIES_API_KEY=
+   SENDER_NUMBER=
+   ```
+
+2. Start everything:
+   ```bash
+   docker-compose up --build
+   ```
+   The backend waits for Postgres, runs migrations, seeds sample data, and starts the dev server.
+3. If using Ollama locally, ensure `ollama serve` is running and pull a model (e.g., `ollama pull llama3.2`).
+
+## Getting Started (Docker)
+
+If you prefer detached mode and tailing logs:
+
+```bash
+docker-compose up -d
+docker-compose logs -f
+```
+
+## Running Locally (without Docker)
+
+Prereqs: PostgreSQL running locally, Node.js 20+, and an `.env` in each app.
+
+Backend (`backend/.env`):
 
 ```env
 NODE_ENV=development
@@ -77,84 +121,66 @@ DB_NAME=series_db
 DB_USER=postgres
 DB_PASSWORD=postgres
 
-# Twitter API (optional - for Twitter routes)
-TWITTER_BEARER_TOKEN=your_twitter_bearer_token_here
+# LLM (defaults shown for local Ollama)
+LLM_PROVIDER=llama
+LLM_BASE_URL=http://localhost:11434
+LLM_MODEL=llama3.2
 
-# LLM API (optional - for generating recaps from tweets)
-# Default: Llama via Ollama (runs in Docker, no API key required)
-LLM_PROVIDER=llama  # Options: 'llama', 'ollama', 'openai'
-LLM_BASE_URL=http://ollama:11434  # Ollama base URL (use 'ollama' service name in Docker)
-LLM_MODEL=llama3.2  # Llama model name (default: llama3.2)
-# Note: If running locally (not in Docker), use http://localhost:11434
-
-# Alternative: OpenAI (if LLM_PROVIDER=openai)
-# OPENAI_API_KEY=your_openai_api_key_here
-# OPENAI_MODEL=gpt-4o-mini  # Recommended: gpt-4o-mini (cost-effective) or gpt-4o (more capable)
+# Twitter API (optional)
+TWITTER_BEARER_TOKEN=
 ```
 
-### Frontend
-
-Create a `.env` file in the `frontend/` directory if needed:
-
-```env
-VITE_API_URL=http://localhost:5001
-```
-
-### Initial Setup
-
-**Migrations run automatically** when the backend container starts! The startup script will:
-
-1. Wait for the database to be ready
-2. Run Drizzle migrations to create/update tables
-3. Start the Express server
-
-No manual migration step needed when using Docker! 🎉
-
-If running locally (without Docker), you can still run migrations manually:
+Run backend locally:
 
 ```bash
 cd backend
-npm run db:migrate
+npm install
+npm run db:migrate    # create/update tables
+npx tsx src/db/seed.ts || true
+npm run dev
 ```
 
-### Database Commands
-
-- `npm run db:migrate` - Push schema changes to database (development)
-- `npm run db:generate` - Generate migration files (production)
-- `npm run db:check` - Check for schema changes
-
-### Kafka Message Ingestor - Env File
+Frontend (`frontend/.env`):
 
 ```env
-# Kafka Configuration (for message ingestion)
-KAFKA_CLIENT_ID=''
-KAFKA_BROKERS=''
-KAFKA_CONSUMER_GROUP=''
-KAFKA_TOPIC=''
-KAFKA_SASL_USERNAME=''
-KAFKA_SASL_PASSWORD=''
-KAFKA_SASL_MECHANISM=plain
-KAFKA_TLS_ENABLED=true
-KAFKA_FROM_BEGINNING=false
+VITE_API_URL=http://localhost:5001
+VITE_SENDER_NUMBER=            # optional, for messaging UI
 ```
 
-in root directory
-
-2. Pull a Llama model for Ollama (first time only):
+Run frontend locally:
 
 ```bash
-docker exec series_ollama ollama pull llama3.2
-# Or use another model: docker exec series_ollama ollama pull llama3.1
+cd frontend
+npm install
+npm run dev -- --host
 ```
 
-3. Start all services (including the Kafka ingestor and Ollama):
+Kafka ingestor (local):
 
 ```bash
-docker-compose up
+cd backend
+npm run kafka:ingest   # requires Kafka + DB env set above
 ```
 
-The Kafka ingestor will automatically start and connect to Kafka. You can also start just the ingestor:
+## Makefile Shortcuts
 
-```bash
-docker-compose up kafka-ingestor
-```
+- `make build` / `make up` / `make down` / `make clean`
+- `make logs`, `make logs-backend`, `make logs-frontend`, `make logs-db`
+- `make install` to install deps locally; `make db-shell` for psql
+
+## Database & Migrations
+
+- Docker flow: migrations run automatically on backend startup via `scripts/start.sh`, and the seed script populates sample data.
+- Local flow: use `npm run db:migrate` after changing the schema; `npm run db:generate` to emit migration files; `npm run db:check` to detect drift.
+
+## Kafka Ingestor
+
+- In Docker: `docker-compose up kafka-ingestor` (starts alongside backend/DB).
+- Locally: `npm run kafka:ingest` from `backend` with Kafka + DB env set.
+- Configure Kafka and Series API credentials in the root `.env` (Docker) or `backend/.env` (local) using the variables listed above.
+
+## Compatibility Notes
+
+- The backend startup script (`backend/scripts/start.sh`) is tested on macOS with Docker; Linux users may need to adjust the `pg_isready` wait loop or executable permissions depending on their distro/shell defaults.
+- Ollama path: the default `LLM_BASE_URL` assumes Ollama is on the host at `http://host.docker.internal:11434` (Docker) or `http://localhost:11434` (local). Update the URL if your LLM host differs.
+- Node 20+ is required for local runs; earlier Node versions are unsupported.
