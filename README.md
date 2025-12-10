@@ -10,6 +10,7 @@ Series pairs a React/Vite frontend with an Express/TypeScript backend, PostgreSQ
 
 - [Demo Video](demo.MOV)
 - YouTube: https://www.youtube.com/watch?v=kEuqcATzOWE
+- Shipyard: http://shipyardhq.tech/projects/b72c939d-5857-44fc-8f99-7718ce7b89e0
 
 ## Stack
 
